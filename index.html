@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RhB Fahrdienst-Locator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h2 { color: #e3000f; /* RhB Rot */ }
+        .data-box {
+            background: #eee;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: #e3000f;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        button:hover { background-color: #cc000d; }
+        .call-btn {
+            background-color: #28a745;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .call-btn:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>RhB Locator</h2>
+    <p>Ermittelt Position und zuständigen Fahrdienst.</p>
+
+    <button onclick="getLocation()">📍 Meine Position ermitteln</button>
+
+    <div id="output" style="display: none;">
+        <h3>Deine Koordinaten:</h3>
+        <div class="data-box" id="coords">Wird berechnet...</div>
+
+        <h3>Streckeninformation:</h3>
+        <div class="data-box" id="networkInfo">Wird analysiert...</div>
+
+        <a id="callButton" href="#" class="call-btn" style="width: 100%; padding: 15px; color: white; border-radius: 5px; font-size: 16px; margin-top: 10px;">📞 Fahrdienst anrufen</a>
+    </div>
+</div>
+
+<script>
+    // Struktur der RhB Netze (mit Platzhalter-Nummern)
+    const rhbNetworks = {
+        arosa: { name: "Arosabahn (Chur - Arosa)", phone: "+41810000001" },
+        bernina: { name: "Berninabahn (St. Moritz - Tirano)", phone: "+41810000002" },
+        stammnetz: { name: "Stammnetz (Graubünden)", phone: "+41810000003" }
+    };
+
+    function getLocation() {
+        if (navigator.geolocation) {
+            document.getElementById('coords').innerHTML = "Suche GPS-Signal...";
+            document.getElementById('output').style.display = "block";
+            
+            navigator.geolocation.getCurrentPosition(processPosition, showError, {
+                enableHighAccuracy: true
+            });
+        } else {
+            alert("Geolocation wird von diesem Browser nicht unterstützt.");
+        }
+    }
+
+    function processPosition(position) {
+        let lat = position.coords.latitude;
+        let lon = position.coords.longitude;
+
+        // 1. WGS84 in LV95 umwandeln (Hier stark vereinfacht für den Prototyp!)
+        // In der echten App nutzen wir hier die exakten Swisstopo-Formeln
+        let lv95_E = Math.round(2000000 + (lon - 9) * 75000); 
+        let lv95_N = Math.round(1000000 + (lat - 46) * 110000);
+
+        document.getElementById('coords').innerHTML = 
+            `GPS: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
+             LV95: E ${lv95_E}, N ${lv95_N}`;
+
+        // 2. Streckenkilometer und Netz ermitteln (Logik-Simulation)
+        let networkKey = determineNetwork(lat, lon);
+        let selectedNetwork = rhbNetworks[networkKey];
+        
+        // Simulierter Streckenkilometer
+        let km = (Math.random() * 50).toFixed(1); 
+
+        document.getElementById('networkInfo').innerHTML = 
+            `<strong>Netz:</strong> ${selectedNetwork.name}<br>
+             <strong>km:</strong> ${km}`;
+
+        // 3. Telefon-Link aktualisieren
+        let callBtn = document.getElementById('callButton');
+        callBtn.href = `tel:${selectedNetwork.phone}`;
+        callBtn.innerHTML = `📞 ${selectedNetwork.name} anrufen`;
+    }
+
+    // Einfache Logik zur Bestimmung des Netzes anhand der Koordinaten
+    function determineNetwork(lat, lon) {
+        // Grobe geografische Zuordnung für den Prototyp
+        if (lat > 46.7) {
+            return "arosa"; // Nördlich (Richtung Chur/Arosa)
+        } else if (lat < 46.4) {
+            return "bernina"; // Südlich (Richtung Berninapass/Tirano)
+        } else {
+            return "stammnetz"; // Dazwischen
+        }
+    }
+
+    function showError(error) {
+        document.getElementById('coords').innerHTML = "Fehler bei der GPS-Ortung.";
+    }
+</script>
+
+</body>
+</html>
