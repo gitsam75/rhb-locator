@@ -8,6 +8,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#e3000f">
 
+    <!-- Leaflet.js CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { box-sizing: border-box; }
@@ -22,15 +23,16 @@
             overflow: hidden;
         }
 
-        /* Karte oben - nimmt 50% des Bildschirms ein */
+        /* Karte oben */
         #map { 
             width: 100%; 
             height: 45vh; 
             border-bottom: 3px solid #e3000f;
             z-index: 1;
+            background-color: #ddd; /* Grauer Hintergrund, falls Karte lädt */
         }
 
-        /* Panel unten - nimmt den Rest ein und ist IMMER SICHTBAR */
+        /* Panel unten */
         .controls { 
             width: 100%; 
             height: 55vh; 
@@ -42,19 +44,10 @@
             z-index: 10;
         }
 
-        .header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
+        .header { display: flex; align-items: center; margin-bottom: 15px; }
         h2 { color: #e3000f; margin: 0; font-size: 1.3em; }
 
-        .scroll-area {
-            overflow-y: auto;
-            flex-grow: 1;
-            padding-bottom: 10px;
-        }
+        .scroll-area { overflow-y: auto; flex-grow: 1; padding-bottom: 10px; }
 
         .data-box { 
             background: #f0f0f0; 
@@ -76,11 +69,8 @@
             cursor: pointer; 
             margin-bottom: 10px; 
             font-weight: bold;
-            transition: background 0.2s;
-            -webkit-tap-highlight-color: transparent;
         }
-
-        button:active { background-color: #a3000b; transform: scale(0.98); }
+        button:active { background-color: #a3000b; }
 
         .btn-test { background-color: #444; }
         .btn-test:active { background-color: #222; }
@@ -97,31 +87,16 @@
             font-size: 16px; 
             font-weight: bold; 
             margin-bottom: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         /* Verzeichnis Styles */
         .dir-container { border: 1px solid #ccc; border-radius: 6px; margin-top: 10px; }
-        .dir-head { background: #eee; padding: 12px; font-weight: bold; font-size: 14px; cursor: pointer; border-radius: 6px; }
+        .dir-head { background: #eee; padding: 12px; font-weight: bold; font-size: 14px; cursor: pointer; border-radius: 6px; text-align: center;}
         .dir-list { display: none; background: white; }
         .dir-list.open { display: block; }
-        .dir-item { 
-            padding: 12px; 
-            border-top: 1px solid #eee; 
-            display: flex; 
-            flex-direction: column; 
-        }
+        .dir-item { padding: 12px; border-top: 1px solid #eee; display: flex; flex-direction: column; }
         .dir-title { font-weight: bold; font-size: 14px; color: #333; }
-        .dir-link { 
-            color: #28a745; 
-            text-decoration: none; 
-            font-weight: bold; 
-            margin-top: 5px; 
-            padding: 8px; 
-            background: #f0fff0; 
-            border-radius: 4px; 
-            text-align: center; 
-        }
+        .dir-link { color: #28a745; text-decoration: none; font-weight: bold; margin-top: 5px; padding: 8px; background: #f0fff0; border-radius: 4px; text-align: center; }
     </style>
 </head>
 <body>
@@ -142,7 +117,7 @@
         <a id="autoCallBtn" href="#" class="call-btn" style="display: none;">📞 Automatische Nummer</a>
 
         <div class="dir-container">
-            <div class="dir-head" onclick="toggleDirectory()">📞 Manuelles Telefonbuch (Anzeigen)</div>
+            <div class="dir-head" onclick="toggleDirectory()">⬇️ Manuelles Telefonbuch öffnen ⬇️</div>
             <div class="dir-list" id="dirList"></div>
         </div>
     </div>
@@ -180,15 +155,36 @@
     const info = document.getElementById('info');
     const autoCall = document.getElementById('autoCallBtn');
 
-    // Init Karte
-    map = L.map('map', { crs: L.CRS.EPSG2056, zoomControl: false }).setView([46.65, 9.75], 9);
-    L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/2056/{z}/{x}/{y}.jpeg').addTo(map);
-    L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.bav.schienennetz/default/current/2056/{z}/{x}/{y}.png', { opacity: 0.8 }).addTo(map);
-    userMarker = L.marker([46.65, 9.75]).addTo(map);
+    // Exakte mathematische Formel zur Umrechnung WGS84 -> LV95 (Schweizer Koordinaten)
+    function convertWGSToLV95(lat, lng) {
+        const phi = (lat * 3600 - 169028.66) / 10000;
+        const lambda = (lng * 3600 - 26782.5) / 10000;
+        const E = 2600072.37 + 211455.93 * lambda - 10938.51 * lambda * phi - 0.36 * lambda * Math.pow(phi, 2) - 44.54 * Math.pow(lambda, 3);
+        const N = 1200147.07 + 308807.95 * phi + 3745.25 * Math.pow(lambda, 2) + 76.63 * Math.pow(phi, 2) - 194.56 * Math.pow(lambda, 2) * phi + 119.79 * Math.pow(phi, 3);
+        return { E: Math.round(E), N: Math.round(N) };
+    }
+
+    // Init Karte (jetzt mit Standard Web-Koordinaten 3857, damit es nicht abstürzt)
+    map = L.map('map', { zoomControl: false }).setView([46.65, 9.75], 9);
+    
+    // Offizielle Swisstopo Landeskarte (über den 3857 Standard-Kanal)
+    L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg', {
+        attribution: '&copy; swisstopo'
+    }).addTo(map);
+    
+    // BAV Schienennetz Layer
+    L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.bav.schienennetz/default/current/3857/{z}/{x}/{y}.png', { 
+        opacity: 0.8,
+        attribution: '&copy; BAV'
+    }).addTo(map);
+
+    // Positions-Marker (blauer Punkt)
+    userMarker = L.marker([46.65, 9.75], {
+        icon: L.divIcon({className: 'user-icon', html: '<div style="background-color: #007bff; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>'})
+    }).addTo(map);
     userMarker.setOpacity(0);
 
     function startTracking() {
-        console.log("Tracking gestartet");
         info.innerHTML = "GPS Status: Suche Signal...";
         userMarker.setOpacity(1);
         if (watchId) navigator.geolocation.clearWatch(watchId);
@@ -200,21 +196,20 @@
     }
 
     function simulatePosition() {
-        console.log("Simulation gestartet");
         userMarker.setOpacity(1);
-        updatePos(46.3265, 10.0575);
+        updatePos(46.3265, 10.0575); // Poschiavo
     }
 
     function updatePos(lat, lng) {
         userMarker.setLatLng([lat, lng]);
-        map.setView([lat, lng], 14);
-        info.innerHTML = `Position: ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>Suche Gleisabschnitt...`;
+        map.setView([lat, lng], 15);
+        info.innerHTML = `Position (GPS): ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>Suche Gleisabschnitt beim BAV...`;
         
-        // LV95 Umrechnung (Näherung für API)
-        let e = 2600000 + (lng - 7.4) * 75000;
-        let n = 1200000 + (lat - 46.9) * 111000;
+        // Exakte Umrechnung in Schweizer LV95 Koordinaten für die Datenbank-Abfrage
+        let lv95 = convertWGSToLV95(lat, lng);
         
-        fetch(`https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${e},${n}&imageDisplay=800,600,96&mapExtent=${e-200},${n-200},${e+200},${n+200}&tolerance=70&layers=all:ch.bav.schienennetz&sr=2056&returnGeometry=false`)
+        // API Anfrage an das Bundesgeoportal
+        fetch(`https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${lv95.E},${lv95.N}&imageDisplay=800,600,96&mapExtent=${lv95.E-200},${lv95.N-200},${lv95.E+200},${lv95.N+200}&tolerance=70&layers=all:ch.bav.schienennetz&sr=2056&returnGeometry=false`)
         .then(res => res.json())
         .then(data => {
             autoCall.style.display = "none";
@@ -222,14 +217,16 @@
                 let attr = data.results[0].attributes;
                 let bName = attr.betreiber || "";
                 let sName = attr.streckenbezeichnung || "";
-                info.innerHTML += `<br>Gleis: ${sName}`;
+                info.innerHTML += `<br>Gleis erkannt: ${sName}`;
                 
                 if (bName.includes("RhB")) {
                     matchCall(sName);
                 }
             } else {
-                info.innerHTML += "<br>Kein Gleis gefunden.";
+                info.innerHTML += "<br>Kein Gleis im Umkreis von 70m gefunden.";
             }
+        }).catch(err => {
+            info.innerHTML += "<br>Fehler bei der Serververbindung.";
         });
     }
 
@@ -251,16 +248,19 @@
         }
     }
 
-    // Telefonbuch füllen
+    // Manuelles Telefonbuch befüllen
     const dList = document.getElementById('dirList');
     bzTelefonbuch.forEach(e => {
         let item = document.createElement('div');
         item.className = 'dir-item';
-        item.innerHTML = `<span class="dir-title">${e.route}</span><a href="tel:+41${e.phone.substring(1)}" class="dir-link">Anrufen: ${e.phone}</a>`;
+        item.innerHTML = `<span class="dir-title">${e.route}</span><a href="tel:+41${e.phone.substring(1)}" class="dir-link">📞 ${e.phone} anrufen</a>`;
         dList.appendChild(item);
     });
 
-    function toggleDirectory() { dList.classList.toggle('open'); }
+    // Funktion zum Auf-/Zuklappen
+    function toggleDirectory() { 
+        dList.classList.toggle('open'); 
+    }
 </script>
 
 </body>
