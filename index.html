@@ -3,133 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RhB Fahrdienst-Locator</title>
+    <title>RhB Fahrdienst-Locator Pro</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f4f9;
-            color: #333;
-        }
-        .container {
-            max-width: 400px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        h2 { color: #e3000f; /* RhB Rot */ }
-        .data-box {
-            background: #eee;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-            font-family: monospace;
-        }
-        button {
-            width: 100%;
-            padding: 15px;
-            background-color: #e3000f;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            margin-bottom: 10px;
-        }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f9; color: #333; }
+        .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #e3000f; }
+        .data-box { background: #eee; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; font-size: 14px; word-wrap: break-word;}
+        button { width: 100%; padding: 15px; background-color: #e3000f; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 10px; }
         button:hover { background-color: #cc000d; }
-        .call-btn {
-            background-color: #28a745;
-            text-decoration: none;
-            display: inline-block;
-            text-align: center;
-            box-sizing: border-box;
-        }
+        .btn-test { background-color: #555; }
+        .btn-test:hover { background-color: #333; }
+        .call-btn { background-color: #28a745; text-decoration: none; display: inline-block; text-align: center; box-sizing: border-box; width: 100%; padding: 15px; color: white; border-radius: 5px; font-size: 16px; margin-top: 10px; font-weight: bold; }
         .call-btn:hover { background-color: #218838; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>RhB Locator</h2>
-    <p>Ermittelt Position und zuständigen Fahrdienst.</p>
+    <h2>RhB Locator Pro</h2>
+    <p>Live-Daten via Bundesamt für Verkehr (BAV)</p>
 
-    <button onclick="getLocation()">📍 Meine Position ermitteln</button>
+    <button onclick="getLocation(false)">📍 Mein echtes GPS nutzen</button>
+    <!-- Test-Button für die Entwicklung zu Hause -->
+    <button class="btn-test" onclick="getLocation(true)">🧪 Test: Standort Chur simulieren</button>
 
     <div id="output" style="display: none;">
-        <h3>Deine Koordinaten:</h3>
+        <h3>Koordinaten:</h3>
         <div class="data-box" id="coords">Wird berechnet...</div>
 
-        <h3>Streckeninformation:</h3>
-        <div class="data-box" id="networkInfo">Wird analysiert...</div>
+        <h3>Gefundene Strecke (BAV):</h3>
+        <div class="data-box" id="networkInfo">Daten werden vom Bund geladen...</div>
 
-        <a id="callButton" href="#" class="call-btn" style="width: 100%; padding: 15px; color: white; border-radius: 5px; font-size: 16px; margin-top: 10px;">📞 Fahrdienst anrufen</a>
+        <a id="callButton" href="#" class="call-btn" style="display: none;">📞 Fahrdienst anrufen</a>
     </div>
 </div>
 
 <script>
-    // Struktur der RhB Netze (mit Platzhalter-Nummern)
-    const rhbNetworks = {
-        arosa: { name: "Arosabahn (Chur - Arosa)", phone: "+41810000001" },
-        bernina: { name: "Berninabahn (St. Moritz - Tirano)", phone: "+41810000002" },
-        stammnetz: { name: "Stammnetz (Graubünden)", phone: "+41810000003" }
-    };
+    // Offizielle Swisstopo Näherungsformel WGS84 -> LV95
+    function convertWGSToLV95(lat, lng) {
+        const phi = (lat * 3600 - 169028.66) / 10000;
+        const lambda = (lng * 3600 - 26782.5) / 10000;
 
-    function getLocation() {
-        if (navigator.geolocation) {
-            document.getElementById('coords').innerHTML = "Suche GPS-Signal...";
-            document.getElementById('output').style.display = "block";
-            
-            navigator.geolocation.getCurrentPosition(processPosition, showError, {
-                enableHighAccuracy: true
-            });
+        const E = 2600072.37 + 211455.93 * lambda - 10938.51 * lambda * phi - 0.36 * lambda * Math.pow(phi, 2) - 44.54 * Math.pow(lambda, 3);
+        const N = 1200147.07 + 308807.95 * phi + 3745.25 * Math.pow(lambda, 2) + 76.63 * Math.pow(phi, 2) - 194.56 * Math.pow(lambda, 2) * phi + 119.79 * Math.pow(phi, 3);
+
+        return { E: Math.round(E), N: Math.round(N) };
+    }
+
+    function getLocation(isTest) {
+        document.getElementById('output').style.display = "block";
+        document.getElementById('callButton').style.display = "none";
+        document.getElementById('networkInfo').innerHTML = "Suche Geodaten...";
+
+        if (isTest) {
+            // Simulierte Koordinaten in Chur in Gleisnähe
+            processPosition({ coords: { latitude: 46.8530, longitude: 9.5300 } });
         } else {
-            alert("Geolocation wird von diesem Browser nicht unterstützt.");
+            if (navigator.geolocation) {
+                document.getElementById('coords').innerHTML = "Suche GPS-Signal...";
+                navigator.geolocation.getCurrentPosition(processPosition, showError, { enableHighAccuracy: true });
+            } else {
+                alert("Geolocation wird nicht unterstützt.");
+            }
         }
     }
 
-    function processPosition(position) {
+    async function processPosition(position) {
         let lat = position.coords.latitude;
         let lon = position.coords.longitude;
 
-        // 1. WGS84 in LV95 umwandeln (Hier stark vereinfacht für den Prototyp!)
-        // In der echten App nutzen wir hier die exakten Swisstopo-Formeln
-        let lv95_E = Math.round(2000000 + (lon - 9) * 75000); 
-        let lv95_N = Math.round(1000000 + (lat - 46) * 110000);
+        // 1. In Schweizer Koordinaten umrechnen
+        let lv95 = convertWGSToLV95(lat, lon);
+        document.getElementById('coords').innerHTML = `WGS84: ${lat.toFixed(4)}, ${lon.toFixed(4)}<br>LV95: E ${lv95.E}, N ${lv95.N}`;
 
-        document.getElementById('coords').innerHTML = 
-            `GPS: ${lat.toFixed(5)}, ${lon.toFixed(5)}<br>
-             LV95: E ${lv95_E}, N ${lv95_N}`;
-
-        // 2. Streckenkilometer und Netz ermitteln (Logik-Simulation)
-        let networkKey = determineNetwork(lat, lon);
-        let selectedNetwork = rhbNetworks[networkKey];
-        
-        // Simulierter Streckenkilometer
-        let km = (Math.random() * 50).toFixed(1); 
-
-        document.getElementById('networkInfo').innerHTML = 
-            `<strong>Netz:</strong> ${selectedNetwork.name}<br>
-             <strong>km:</strong> ${km}`;
-
-        // 3. Telefon-Link aktualisieren
-        let callBtn = document.getElementById('callButton');
-        callBtn.href = `tel:${selectedNetwork.phone}`;
-        callBtn.innerHTML = `📞 ${selectedNetwork.name} anrufen`;
+        // 2. Swisstopo API abfragen
+        await fetchSwisstopoData(lv95.E, lv95.N);
     }
 
-    // Einfache Logik zur Bestimmung des Netzes anhand der Koordinaten
-    function determineNetwork(lat, lon) {
-        // Grobe geografische Zuordnung für den Prototyp
-        if (lat > 46.7) {
-            return "arosa"; // Nördlich (Richtung Chur/Arosa)
-        } else if (lat < 46.4) {
-            return "bernina"; // Südlich (Richtung Berninapass/Tirano)
-        } else {
-            return "stammnetz"; // Dazwischen
+    async function fetchSwisstopoData(E, N) {
+        // Such-Toleranz: ca. 50 Meter um den Standort herum im Layer "ch.bav.schienennetz"
+        const url = `https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${E},${N}&imageDisplay=800,600,96&mapExtent=${E-400},${N-300},${E+400},${N+300}&tolerance=50&layers=all:ch.bav.schienennetz&sr=2056&returnGeometry=false`;
+
+        try {
+            let response = await fetch(url);
+            let data = await response.json();
+
+            if (data.results && data.results.length > 0) {
+                // Wir nehmen das erste gefundene Gleis
+                let trackAttributes = data.results[0].attributes;
+                
+                // Prüfen ob es sich um eine RhB Strecke handelt (Die BAV Daten enthalten ein Feld 'betreiber')
+                let betreiber = trackAttributes.betreiber || "Unbekannt";
+                let strecke = trackAttributes.streckenbezeichnung || "Keine Bezeichnung";
+                
+                document.getElementById('networkInfo').innerHTML = 
+                    `<strong>Betreiber:</strong> ${betreiber}<br>
+                     <strong>Strecke:</strong> ${strecke}<br>
+                     <br><small><em>(Rohdaten vom BAV erfolgreich geladen)</em></small>`;
+
+                // Wenn es die RhB ist, Anruf-Button aktivieren
+                if (betreiber.includes("RhB") || betreiber.includes("Rhätische Bahn")) {
+                    setupCallButton(strecke);
+                } else {
+                    document.getElementById('networkInfo').innerHTML += `<br><br><span style="color:red">Dies ist keine RhB Strecke.</span>`;
+                }
+
+            } else {
+                document.getElementById('networkInfo').innerHTML = "Kein Schienennetz im Umkreis von 50m gefunden. Bist du am Gleis?";
+            }
+        } catch (error) {
+            document.getElementById('networkInfo').innerHTML = "Fehler bei der Verbindung zum Bundesgeoportal.";
+            console.error(error);
         }
+    }
+
+    function setupCallButton(strecke) {
+        let callBtn = document.getElementById('callButton');
+        let phone = "+41810000000"; // Platzhalter
+        let netzName = "RhB Fahrdienst";
+
+        // Einfache Text-Analyse, um das Netz aus der Streckenbezeichnung zu erraten
+        if (strecke.toLowerCase().includes("arosa")) {
+            netzName = "Fahrdienst Arosabahn";
+            phone = "+41810000001";
+        } else if (strecke.toLowerCase().includes("bernina") || strecke.toLowerCase().includes("tirano")) {
+            netzName = "Fahrdienst Berninabahn";
+            phone = "+41810000002";
+        } else {
+            netzName = "Fahrdienst Stammnetz";
+            phone = "+41810000003";
+        }
+
+        callBtn.href = `tel:${phone}`;
+        callBtn.innerHTML = `📞 ${netzName} anrufen`;
+        callBtn.style.display = "block";
     }
 
     function showError(error) {
