@@ -13,81 +13,42 @@
     <style>
         * { box-sizing: border-box; }
         body { 
-            font-family: Arial, sans-serif; 
-            margin: 0; 
-            padding: 0; 
-            background-color: #f4f4f9; 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden;
+            font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; 
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden;
         }
 
         /* Karte oben */
-        #map { 
-            width: 100%; 
-            height: 45vh; 
-            border-bottom: 3px solid #e3000f;
-            z-index: 1;
-            background-color: #ddd; /* Grauer Hintergrund, falls Karte lädt */
-        }
+        #map { width: 100%; height: 45vh; border-bottom: 3px solid #e3000f; z-index: 1; background-color: #e5e3df; }
 
         /* Panel unten */
         .controls { 
-            width: 100%; 
-            height: 55vh; 
-            background: white; 
-            padding: 15px; 
-            display: flex; 
-            flex-direction: column;
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
-            z-index: 10;
+            width: 100%; height: 55vh; background: white; padding: 15px; display: flex; 
+            flex-direction: column; box-shadow: 0 -4px 10px rgba(0,0,0,0.1); z-index: 10;
         }
 
-        .header { display: flex; align-items: center; margin-bottom: 15px; }
+        .header { display: flex; align-items: center; margin-bottom: 10px; }
         h2 { color: #e3000f; margin: 0; font-size: 1.3em; }
 
         .scroll-area { overflow-y: auto; flex-grow: 1; padding-bottom: 10px; }
 
         .data-box { 
-            background: #f0f0f0; 
-            padding: 12px; 
-            margin-bottom: 10px; 
-            border-left: 5px solid #e3000f;
-            font-family: monospace; 
-            font-size: 13px;
+            background: #f0f0f0; padding: 12px; margin-bottom: 15px; 
+            border-left: 5px solid #e3000f; font-family: monospace; font-size: 13px; line-height: 1.4;
         }
 
-        button { 
-            width: 100%; 
-            padding: 14px; 
-            background-color: #e3000f; 
-            color: white; 
-            border: none; 
-            border-radius: 6px; 
-            font-size: 16px; 
-            cursor: pointer; 
-            margin-bottom: 10px; 
-            font-weight: bold;
-        }
-        button:active { background-color: #a3000b; }
+        .highlight-km { color: #e3000f; font-weight: bold; font-size: 14px; display: block; margin-top: 5px; }
 
-        .btn-test { background-color: #444; }
-        .btn-test:active { background-color: #222; }
+        .btn-test { 
+            width: 100%; padding: 12px; background-color: #444; color: white; border: none; 
+            border-radius: 6px; font-size: 14px; cursor: pointer; margin-bottom: 10px; font-weight: bold;
+        }
 
         .call-btn { 
-            background-color: #28a745; 
-            text-decoration: none; 
-            display: block; 
-            text-align: center; 
-            width: 100%; 
-            padding: 16px; 
-            color: white; 
-            border-radius: 6px; 
-            font-size: 16px; 
-            font-weight: bold; 
-            margin-bottom: 15px;
+            background-color: #28a745; text-decoration: none; display: block; text-align: center; 
+            width: 100%; padding: 16px; color: white; border-radius: 6px; font-size: 16px; 
+            font-weight: bold; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
+        .call-btn:active { background-color: #218838; transform: scale(0.98); }
 
         /* Verzeichnis Styles */
         .dir-container { border: 1px solid #ccc; border-radius: 6px; margin-top: 10px; }
@@ -109,12 +70,16 @@
     </div>
 
     <div class="scroll-area">
-        <button onclick="startTracking()">📍 Position verfolgen</button>
-        <button class="btn-test" onclick="simulatePosition()">🧪 Test: Poschiavo (Simulation)</button>
+        <!-- Der Test-Button bleibt für dich zur Überprüfung von zu Hause -->
+        <button class="btn-test" onclick="simulatePosition()">🧪 Test: Standort Filisur simulieren</button>
         
-        <div class="data-box" id="info">GPS Status: Inaktiv</div>
+        <div class="data-box" id="info">
+            Warte auf GPS-Signal...<br>
+            <small>(Bitte Ortungsdienste im Browser erlauben)</small>
+        </div>
         
-        <a id="autoCallBtn" href="#" class="call-btn" style="display: none;">📞 Automatische Nummer</a>
+        <!-- Der grösste Button für den direkten Anruf -->
+        <a id="autoCallBtn" href="#" class="call-btn" style="display: none;">📞 Fahrdienst anrufen</a>
 
         <div class="dir-container">
             <div class="dir-head" onclick="toggleDirectory()">⬇️ Manuelles Telefonbuch öffnen ⬇️</div>
@@ -155,7 +120,6 @@
     const info = document.getElementById('info');
     const autoCall = document.getElementById('autoCallBtn');
 
-    // Exakte mathematische Formel zur Umrechnung WGS84 -> LV95 (Schweizer Koordinaten)
     function convertWGSToLV95(lat, lng) {
         const phi = (lat * 3600 - 169028.66) / 10000;
         const lambda = (lng * 3600 - 26782.5) / 10000;
@@ -164,91 +128,105 @@
         return { E: Math.round(E), N: Math.round(N) };
     }
 
-    // Init Karte (jetzt mit Standard Web-Koordinaten 3857, damit es nicht abstürzt)
     map = L.map('map', { zoomControl: false }).setView([46.65, 9.75], 9);
-    
-    // Offizielle Swisstopo Landeskarte (über den 3857 Standard-Kanal)
-    L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg', {
-        attribution: '&copy; swisstopo'
-    }).addTo(map);
-    
-    // BAV Schienennetz Layer
-    L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.bav.schienennetz/default/current/3857/{z}/{x}/{y}.png', { 
-        opacity: 0.8,
-        attribution: '&copy; BAV'
-    }).addTo(map);
+    L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg', { attribution: '&copy; swisstopo' }).addTo(map);
+    L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.bav.schienennetz/default/current/3857/{z}/{x}/{y}.png', { opacity: 0.8 }).addTo(map);
 
-    // Positions-Marker (blauer Punkt)
     userMarker = L.marker([46.65, 9.75], {
         icon: L.divIcon({className: 'user-icon', html: '<div style="background-color: #007bff; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>'})
     }).addTo(map);
     userMarker.setOpacity(0);
 
+    // --- AUTO START BEIM ÖFFNEN DER APP ---
+    window.onload = function() {
+        startTracking();
+    };
+
     function startTracking() {
-        info.innerHTML = "GPS Status: Suche Signal...";
-        userMarker.setOpacity(1);
         if (watchId) navigator.geolocation.clearWatch(watchId);
         watchId = navigator.geolocation.watchPosition(
             (pos) => updatePos(pos.coords.latitude, pos.coords.longitude),
-            (err) => { info.innerHTML = "Fehler: " + err.message; },
+            (err) => { info.innerHTML = "GPS-Fehler: Bitte erlaube der Seite den Standortzugriff."; },
             { enableHighAccuracy: true }
         );
     }
 
     function simulatePosition() {
-        userMarker.setOpacity(1);
-        updatePos(46.3265, 10.0575); // Poschiavo
+        updatePos(46.6715, 9.6865); // Filisur Bahnhof
     }
 
     function updatePos(lat, lng) {
+        userMarker.setOpacity(1);
         userMarker.setLatLng([lat, lng]);
         map.setView([lat, lng], 15);
-        info.innerHTML = `Position (GPS): ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>Suche Gleisabschnitt beim BAV...`;
         
-        // Exakte Umrechnung in Schweizer LV95 Koordinaten für die Datenbank-Abfrage
         let lv95 = convertWGSToLV95(lat, lng);
         
-        // API Anfrage an das Bundesgeoportal
         fetch(`https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${lv95.E},${lv95.N}&imageDisplay=800,600,96&mapExtent=${lv95.E-200},${lv95.N-200},${lv95.E+200},${lv95.N+200}&tolerance=70&layers=all:ch.bav.schienennetz&sr=2056&returnGeometry=false`)
         .then(res => res.json())
         .then(data => {
-            autoCall.style.display = "none";
             if (data.results && data.results.length > 0) {
                 let attr = data.results[0].attributes;
-                let bName = attr.betreiber || "";
-                let sName = attr.streckenbezeichnung || "";
-                info.innerHTML += `<br>Gleis erkannt: ${sName}`;
+                let bName = attr.betreiber || "Unbekannt";
+                let sName = attr.streckenbezeichnung || "Schiene erkannt";
                 
-                if (bName.includes("RhB")) {
+                // Wir suchen in den BAV Daten nach allem, was nach "Kilometer" aussieht
+                let kmText = "Keine Kilometrierung im BAV-Datensatz.";
+                for (let key in attr) {
+                    if (key.toLowerCase().includes("km") || key.toLowerCase().includes("kilometer")) {
+                        kmText = attr[key];
+                    }
+                }
+
+                info.innerHTML = `
+                    Gleis: <strong>${sName}</strong> (${bName})<br>
+                    <span class="highlight-km">Strecken-km: ${kmText}</span>
+                    <small>Position: E ${lv95.E} / N ${lv95.N}</small>
+                `;
+                
+                if (bName.includes("RhB") || bName.includes("Rhätische")) {
                     matchCall(sName);
+                } else {
+                    autoCall.style.display = "none";
                 }
             } else {
-                info.innerHTML += "<br>Kein Gleis im Umkreis von 70m gefunden.";
+                info.innerHTML = `Position: E ${lv95.E} / N ${lv95.N}<br><span style="color:red">Keine RhB-Schiene im Umkreis von 70m gefunden.</span>`;
+                autoCall.style.display = "none";
             }
-        }).catch(err => {
-            info.innerHTML += "<br>Fehler bei der Serververbindung.";
         });
     }
 
     function matchCall(sName) {
         let best = null;
         let max = 0;
+        
+        // Smarte, tolerantere Suchfunktion
         bzTelefonbuch.forEach(e => {
             let score = 0;
+            // Wir zerlegen beide Namen in einzelne Wörter (z.B. "Thusis" und "Filisur")
             let keys = e.route.toLowerCase().replace(/[()]/g, "").split(/[\s-]+/);
+            keys = keys.filter(k => k.length > 2); // Nur echte Wörter zählen
+            
             keys.forEach(k => { if (sName.toLowerCase().includes(k)) score++; });
             if (score > max) { max = score; best = e; }
         });
 
+        // Wenn er einen Sektor aus dem Foto sicher erkennt
         if (best && max > 0) {
             let num = "+41" + best.phone.substring(1);
             autoCall.href = "tel:" + num;
             autoCall.innerHTML = "📞 " + best.route + " anrufen";
             autoCall.style.display = "block";
+            autoCall.style.backgroundColor = "#28a745"; // Grün
+        } else {
+            // FALLBACK: Er weiss, dass es RhB ist, findet den Namen aber nicht in der Liste
+            autoCall.href = "tel:+41812882682";
+            autoCall.innerHTML = "📞 BZ Landquart (Standard) anrufen";
+            autoCall.style.display = "block";
+            autoCall.style.backgroundColor = "#ff9800"; // Orange zur Warnung
         }
     }
 
-    // Manuelles Telefonbuch befüllen
     const dList = document.getElementById('dirList');
     bzTelefonbuch.forEach(e => {
         let item = document.createElement('div');
@@ -257,10 +235,7 @@
         dList.appendChild(item);
     });
 
-    // Funktion zum Auf-/Zuklappen
-    function toggleDirectory() { 
-        dList.classList.toggle('open'); 
-    }
+    function toggleDirectory() { dList.classList.toggle('open'); }
 </script>
 
 </body>
