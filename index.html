@@ -4,37 +4,47 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>RhB Fahrdienst-Locator Pro Map</title>
+    
+    <!-- PWA Verknüpfungen: Macht die App installierbar -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#e3000f">
+    <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Rhaetische_Bahn.svg/512px-Rhaetische_Bahn.svg.png">
+
     <!-- Leaflet.js CSS für die Karte -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; color: #333; height: 100vh; display: flex; flex-direction: column; }
         /* Karten-Container soll den Großteil des Bildschirms einnehmen */
-        #map { flex-grow: 1; width: 100%; position: relative; }
+        #map { flex-grow: 1; width: 100%; position: relative; z-index: 1;}
+        
         /* Steuerungspanel unter der Karte */
-        .controls { background: white; padding: 15px; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -4px 8px rgba(0,0,0,0.1); position: fixed; bottom: 0; width: 100%; box-sizing: border-box; z-index: 1000; transition: transform 0.3s ease; }
-        .controls.minimized { transform: translateY(70%); }
-        .controls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; cursor: pointer; }
+        .controls { background: white; padding: 15px; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -4px 15px rgba(0,0,0,0.15); position: fixed; bottom: 0; width: 100%; box-sizing: border-box; z-index: 1000; transition: transform 0.3s ease; max-height: 85vh; display: flex; flex-direction: column;}
+        .controls.minimized { transform: translateY(calc(100% - 60px)); } /* Panel fast ganz verstecken */
+        
+        .controls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; cursor: pointer; padding-bottom: 10px; border-bottom: 1px solid #eee; }
         h2 { color: #e3000f; margin: 0; font-size: 1.2em; }
-        .toggle-icon { font-size: 1.2em; transition: transform 0.3s ease; }
+        .toggle-icon { font-size: 1.2em; transition: transform 0.3s ease; color: #666; }
         .controls.minimized .toggle-icon { transform: rotate(180deg); }
+        
+        .scrollable-content { overflow-y: auto; padding-bottom: 20px;}
+        
         .data-box { background: #eee; padding: 10px; margin: 8px 0; border-radius: 5px; font-family: monospace; font-size: 12px; word-wrap: break-word;}
-        button { width: 100%; padding: 12px; background-color: #e3000f; color: white; border: none; border-radius: 5px; font-size: 15px; cursor: pointer; margin-bottom: 8px; }
+        button { width: 100%; padding: 12px; background-color: #e3000f; color: white; border: none; border-radius: 5px; font-size: 15px; cursor: pointer; margin-bottom: 8px; font-weight: bold;}
         button:hover { background-color: #cc000d; }
         .btn-test { background-color: #555; }
         .btn-test:hover { background-color: #333; }
-        .call-btn { background-color: #28a745; text-decoration: none; display: inline-block; text-align: center; box-sizing: border-box; width: 100%; padding: 12px; color: white; border-radius: 5px; font-size: 15px; font-weight: bold; }
+        .call-btn { background-color: #28a745; text-decoration: none; display: inline-block; text-align: center; box-sizing: border-box; width: 100%; padding: 12px; color: white; border-radius: 5px; font-size: 15px; font-weight: bold; margin-bottom: 8px;}
         .call-btn:hover { background-color: #218838; }
         
         /* Styles für das aufklappbare Verzeichnis */
-        .directory-container { margin-top: 10px; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; }
-        .directory-header { background-color: #eee; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;}
-        .directory-content { display: none; max-height: 250px; overflow-y: auto; background-color: white;}
+        .directory-container { margin-top: 10px; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; background: white;}
+        .directory-header { background-color: #f8f9fa; padding: 12px; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; align-items: center;}
+        .directory-content { display: none; background-color: white;}
         .directory-content.open { display: block; }
-        .directory-item { border-bottom: 1px solid #eee; padding: 10px; display: flex; flex-direction: column; }
-        .directory-item:last-child { border-bottom: none; }
-        .sector-title { font-size: 13px; margin-bottom: 4px; font-weight: bold; }
-        .sector-meta { font-size: 11px; color: #666; font-style: italic; margin-bottom: 4px; }
-        .phone-link { font-size: 14px; color: #28a745; text-decoration: none; font-family: monospace; font-weight: bold; }
+        .directory-item { border-top: 1px solid #eee; padding: 12px; display: flex; flex-direction: column; }
+        .sector-title { font-size: 14px; margin-bottom: 4px; font-weight: bold; }
+        .sector-meta { font-size: 12px; color: #666; font-style: italic; margin-bottom: 8px; }
+        .phone-link { font-size: 15px; color: #28a745; text-decoration: none; font-family: monospace; font-weight: bold; background: #e8f5e9; padding: 8px; border-radius: 4px; text-align: center;}
     </style>
 </head>
 <body>
@@ -43,26 +53,28 @@
 <div id="map"></div>
 
 <!-- Steuerungspanel (unten fixiert) -->
-<div class="controlsMinimized controls" id="controls">
+<div class="controls minimized" id="controls">
     <div class="controls-header" onclick="toggleControls()">
-        <h2>RhB Fahrdienst Pro</h2>
+        <h2>RhB Fahrdienst Locator</h2>
         <span class="toggle-icon">▼</span>
     </div>
     
-    <button onclick="startTracking()">📍 Meine Position fixieren & verfolgen</button>
-    <button class="btn-test" onclick="simulatePosition()">🧪 Test: Standort simulieren (Poschiavo)</button>
-    
-    <div class="data-box" id="info">Suche GPS...</div>
-    <a id="autoCallButton" href="#" class="call-btn" style="display: none;">📞 Automatisch erkannte Nummer</a>
+    <div class="scrollable-content">
+        <button onclick="startTracking()">📍 Meine Position fixieren & verfolgen</button>
+        <button class="btn-test" onclick="simulatePosition()">🧪 Test: Standort simulieren (Poschiavo)</button>
+        
+        <div class="data-box" id="info">GPS inaktiv. Bitte auf 'Meine Position fixieren' tippen.</div>
+        <a id="autoCallButton" href="#" class="call-btn" style="display: none;">📞 Automatisch erkannte Nummer</a>
 
-    <!-- Aufklappbares Verzeichnis aus deinem Bild -->
-    <div class="directory-container">
-        <div class="directory-header" onclick="toggleDirectory()">
-            <span>📞 Manuelles Telefonbuch (Sektor wählen)</span>
-            <span id="dir-icon">▶</span>
-        </div>
-        <div class="directory-content" id="directoryList">
-            <!-- Wird dynamisch gefüllt -->
+        <!-- Aufklappbares Verzeichnis -->
+        <div class="directory-container">
+            <div class="directory-header" onclick="toggleDirectory()">
+                <span>📞 Manuelles Telefonbuch öffnen</span>
+                <span id="dir-icon">▶</span>
+            </div>
+            <div class="directory-content" id="directoryList">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
         </div>
     </div>
 </div>
@@ -71,7 +83,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script>
-    // --- DATENBANK AUS DEM BILD (Formatierung angepasst) ---
+    // --- DATENBANK AUS DEM BILD ---
     const bzTelefonbuch = [
         { bezeichn: "BZ Landquart", route: "(Chur) - Untervaz", phone: "0812882682", meta: "" },
         { bezeichn: "BZ Landquart", route: "Landquart - (Untervaz)", phone: "0812882681", meta: "" },
@@ -108,77 +120,69 @@
 
     // --- KARTEN-FUNKTIONEN ---
     function initMap() {
-        // Karte initialisieren und auf Graubünden zentrieren (CH-Koordinaten LV95 benutzen)
         map = L.map('map', {
-            crs: L.CRS.EPSG2056, // Swisstopo benötigt EPSG2056
+            crs: L.CRS.EPSG2056,
             continuousWorld: true,
-            worldCopyJump: false
-        }).setView([46.7, 9.7], 10); // Grobe Zentrierung Graubünden
+            worldCopyJump: false,
+            zoomControl: false // Kontrolle ausblenden, um Platz auf dem Handy zu sparen
+        }).setView([46.65, 9.75], 9); // Graubünden
 
-        // Swisstopo Landeskarte farbig (BaseMap)
         L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/2056/{z}/{x}/{y}.jpeg', {
-            attribution: '&copy; swisstopo',
-            minZoom: 2,
-            maxZoom: 18
+            attribution: '&copy; swisstopo', minZoom: 2, maxZoom: 18
         }).addTo(map);
 
-        // BAV Schienennetz-Layer über die Karte legen (Das Schienennetz selbst)
         L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.bav.schienennetz/default/current/2056/{z}/{x}/{y}.png', {
-            attribution: '&copy; BAV',
-            opacity: 0.8,
-            minZoom: 8
+            attribution: '&copy; BAV', opacity: 0.8, minZoom: 8
         }).addTo(map);
         
-        // Initialen Marker setzen
-        userMarker = L.marker([46.7, 9.7], {
-            icon: L.divIcon({className: 'user-location-icon', html: '<div style="background-color: blue; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>'})
+        userMarker = L.marker([46.65, 9.75], {
+            icon: L.divIcon({className: 'user-location-icon', html: '<div style="background-color: #007bff; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>'})
         }).addTo(map);
+        userMarker.setOpacity(0); // Verstecken bis GPS aktiv
     }
 
-    // --- GPS TRACKING UND AUTOMATISCHE ANRUFFUNKTION ---
+    // --- GPS TRACKING ---
     function startTracking() {
-        toggleControls(false); // Panel minimieren
+        toggleControls(false); 
+        userMarker.setOpacity(1);
         infoBox.innerHTML = "Warte auf GPS-Signal...";
-        if (watchId) navigator.geolocation.clearWatch(watchId); // Alte Verfolgung stoppen
+        if (watchId) navigator.geolocation.clearWatch(watchId);
 
         watchId = navigator.geolocation.watchPosition(
             (pos) => updateLocation(pos.coords.latitude, pos.coords.longitude, false),
-            (err) => { infoBox.innerHTML = "GPS-Fehler: " + err.message; },
+            (err) => { infoBox.innerHTML = "GPS-Fehler: Bitte Standortfreigabe prüfen."; },
             { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
         );
     }
 
     function simulatePosition() {
-        toggleControls(false); // Panel minimieren
+        toggleControls(false);
+        userMarker.setOpacity(1);
         // Simulation bei Poschiavo Bahnhof
-        updateLocation(46.3150, 10.0550, true);
+        updateLocation(46.3265, 10.0575, true);
     }
 
     async function updateLocation(lat, lng, isSimulated) {
         let newLatLng = [lat, lng];
         userMarker.setLatLng(newLatLng);
-        map.setView(newLatLng, 15); // Auf Position zoomen
+        map.setView(newLatLng, 15); 
         
-        infoBox.innerHTML = `WGS84: ${lat.toFixed(4)}, ${lng.toFixed(4)}` + (isSimulated ? " (Test)" : "");
+        infoBox.innerHTML = `Position: ${lat.toFixed(4)}, ${lng.toFixed(4)}` + (isSimulated ? " (Test)" : "");
 
-        // Exakte LV95 Meter-Koordinaten für die API berechnen (Swisstopo benötigt 7-8 stellige Meter)
-        // Wir nutzen eine sehr vereinfachte Näherung für den LV95 Layer
         let lv95_E = 2600000 + (lng - 7.4) * 75000;
         let lv95_N = 1200000 + (lat - 46.9) * 111000;
         
-        // Swisstopo API abfragen (Wie im vorherigen Schritt gelernt, layer:ch.bav.schienennetz)
         await fetchSwisstopoData(lv95_E, lv95_N);
     }
 
     async function fetchSwisstopoData(E, N) {
-        // Toleranz auf 70m erhöht für besseres Snapping im Gebirge
         const url = `https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${E},${N}&imageDisplay=800,600,96&mapExtent=${E-200},${N-200},${E+200},${N+200}&tolerance=70&layers=all:ch.bav.schienennetz&sr=2056&returnGeometry=false`;
 
         try {
             let response = await fetch(url);
             let data = await response.json();
 
-            autoCallBtn.style.display = "none"; // Vorherigen Button verstecken
+            autoCallBtn.style.display = "none"; 
 
             if (data.results && data.results.length > 0) {
                 let attr = data.results[0].attributes;
@@ -198,16 +202,15 @@
         }
     }
 
-    // --- SMARTE ANRUFZUORDNUNG (Aus Foto-Datenbank) ---
+    // --- SMARTE ANRUFZUORDNUNG ---
     function matchAndSetupCall(streckeBAV) {
         let streckeLower = streckeBAV.toLowerCase();
         let bestMatch = null;
         let maxScore = 0;
 
-        // Scoring: Gleiche BAV-Namen mit Schlüsselwörtern aus deinem Bild ab
         for (let entry of bzTelefonbuch) {
             let score = 0;
-            let keys = entry.route.replace(/[()]/g, "").toLowerCase().split(/[\s-]+/); // Schlüsselwörter bereinigen
+            let keys = entry.route.replace(/[()]/g, "").toLowerCase().split(/[\s-]+/); 
             
             for (let key of keys) {
                 if (streckeLower.includes(key)) score++;
@@ -215,8 +218,7 @@
             if (score > maxScore) { maxScore = score; bestMatch = entry; }
         }
 
-        if (bestMatch && maxScore > 1) { // Nur bei guter Übereinstimmung
-            // Nummer für Smartphone formatieren (Landesvorwahl +41, erste 0 weg)
+        if (bestMatch && maxScore > 0) { 
             let rawNum = bestMatch.phone.replace(/[^0-9]/g, "");
             let formattedNum = "+41" + rawNum.substring(1);
             
@@ -226,7 +228,7 @@
         }
     }
 
-    // --- MANUELLES VERZEICHNIS BAUEN UND STEUERN ---
+    // --- MANUELLES VERZEICHNIS ---
     function buildManualDirectory() {
         let listContainer = document.getElementById('directoryList');
         
@@ -234,24 +236,25 @@
             let divItem = document.createElement('div');
             divItem.className = 'directory-item';
             
-            // Nummer für Smartphone formatieren
             let rawNum = entry.phone.replace(/[^0-9]/g, "");
             let formattedNum = "+41" + rawNum.substring(1);
             
             divItem.innerHTML = `
                 <span class="sector-title">${entry.route}</span>
                 <span class="sector-meta">${entry.bezeichn}${entry.meta ? ' (' + entry.meta + ')' : ''}</span>
-                <a href="tel:${formattedNum}" class="phone-link">${entry.phone}</a>
+                <a href="tel:${formattedNum}" class="phone-link">📞 ${entry.phone}</a>
             `;
             listContainer.appendChild(divItem);
         });
     }
 
-    // --- UI STEUERUNG (AUFKLAPPEN) ---
+    // --- UI STEUERUNG ---
     function toggleDirectory() {
-        document.getElementById('directoryList').classList.toggle('open');
-        document.getElementById('dir-icon').innerHTML = 
-            document.getElementById('directoryList').classList.contains('open') ? '▼' : '▶';
+        let dirList = document.getElementById('directoryList');
+        dirList.classList.toggle('open');
+        document.getElementById('dir-icon').innerHTML = dirList.classList.contains('open') ? '▼' : '▶';
+        // Wenn man das Verzeichnis öffnet, stellen wir sicher, dass das Panel groß ist
+        if(dirList.classList.contains('open')) toggleControls(true);
     }
 
     function toggleControls(forceState) {
@@ -262,6 +265,15 @@
         } else {
             panel.classList.toggle('minimized');
         }
+    }
+
+    // --- PWA SERVICE WORKER REGISTRIERUNG ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker erfolgreich registriert'))
+                .catch(err => console.error('Service Worker Fehler: ', err));
+        });
     }
 </script>
 
