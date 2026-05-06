@@ -2,179 +2,266 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RhB Fahrdienst-Locator Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>RhB Fahrdienst-Locator Pro Map</title>
+    <!-- Leaflet.js CSS für die Karte -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f9; color: #333; }
-        .container { max-width: 450px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h2 { color: #e3000f; }
-        .data-box { background: #eee; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; font-size: 14px; word-wrap: break-word;}
-        button { width: 100%; padding: 15px; background-color: #e3000f; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 10px; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; color: #333; height: 100vh; display: flex; flex-direction: column; }
+        /* Karten-Container soll den Großteil des Bildschirms einnehmen */
+        #map { flex-grow: 1; width: 100%; position: relative; }
+        /* Steuerungspanel unter der Karte */
+        .controls { background: white; padding: 15px; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -4px 8px rgba(0,0,0,0.1); position: fixed; bottom: 0; width: 100%; box-sizing: border-box; z-index: 1000; transition: transform 0.3s ease; }
+        .controls.minimized { transform: translateY(70%); }
+        .controls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; cursor: pointer; }
+        h2 { color: #e3000f; margin: 0; font-size: 1.2em; }
+        .toggle-icon { font-size: 1.2em; transition: transform 0.3s ease; }
+        .controls.minimized .toggle-icon { transform: rotate(180deg); }
+        .data-box { background: #eee; padding: 10px; margin: 8px 0; border-radius: 5px; font-family: monospace; font-size: 12px; word-wrap: break-word;}
+        button { width: 100%; padding: 12px; background-color: #e3000f; color: white; border: none; border-radius: 5px; font-size: 15px; cursor: pointer; margin-bottom: 8px; }
         button:hover { background-color: #cc000d; }
         .btn-test { background-color: #555; }
         .btn-test:hover { background-color: #333; }
-        .call-btn { background-color: #28a745; text-decoration: none; display: inline-block; text-align: center; box-sizing: border-box; width: 100%; padding: 15px; color: white; border-radius: 5px; font-size: 16px; margin-top: 10px; font-weight: bold; }
+        .call-btn { background-color: #28a745; text-decoration: none; display: inline-block; text-align: center; box-sizing: border-box; width: 100%; padding: 12px; color: white; border-radius: 5px; font-size: 15px; font-weight: bold; }
         .call-btn:hover { background-color: #218838; }
-        .info-text { font-size: 12px; color: #666; margin-top: 5px; }
+        
+        /* Styles für das aufklappbare Verzeichnis */
+        .directory-container { margin-top: 10px; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; }
+        .directory-header { background-color: #eee; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;}
+        .directory-content { display: none; max-height: 250px; overflow-y: auto; background-color: white;}
+        .directory-content.open { display: block; }
+        .directory-item { border-bottom: 1px solid #eee; padding: 10px; display: flex; flex-direction: column; }
+        .directory-item:last-child { border-bottom: none; }
+        .sector-title { font-size: 13px; margin-bottom: 4px; font-weight: bold; }
+        .sector-meta { font-size: 11px; color: #666; font-style: italic; margin-bottom: 4px; }
+        .phone-link { font-size: 14px; color: #28a745; text-decoration: none; font-family: monospace; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>RhB Locator Pro</h2>
-    <p>Live-Daten BAV & BZ Landquart Telefonbuch</p>
+<!-- Karten-Container -->
+<div id="map"></div>
 
-    <button onclick="getLocation(false)">📍 Mein echtes GPS nutzen</button>
-    <button class="btn-test" onclick="getLocation(true)">🧪 Test: Standort simulieren</button>
+<!-- Steuerungspanel (unten fixiert) -->
+<div class="controlsMinimized controls" id="controls">
+    <div class="controls-header" onclick="toggleControls()">
+        <h2>RhB Fahrdienst Pro</h2>
+        <span class="toggle-icon">▼</span>
+    </div>
+    
+    <button onclick="startTracking()">📍 Meine Position fixieren & verfolgen</button>
+    <button class="btn-test" onclick="simulatePosition()">🧪 Test: Standort simulieren (Poschiavo)</button>
+    
+    <div class="data-box" id="info">Suche GPS...</div>
+    <a id="autoCallButton" href="#" class="call-btn" style="display: none;">📞 Automatisch erkannte Nummer</a>
 
-    <div id="output" style="display: none;">
-        <h3>Koordinaten:</h3>
-        <div class="data-box" id="coords">Wird berechnet...</div>
-
-        <h3>Gefundene Strecke (BAV):</h3>
-        <div class="data-box" id="networkInfo">Daten werden vom Bund geladen...</div>
-
-        <a id="callButton" href="#" class="call-btn" style="display: none;">📞 Fahrdienst anrufen</a>
-        <div id="debugInfo" class="info-text"></div>
+    <!-- Aufklappbares Verzeichnis aus deinem Bild -->
+    <div class="directory-container">
+        <div class="directory-header" onclick="toggleDirectory()">
+            <span>📞 Manuelles Telefonbuch (Sektor wählen)</span>
+            <span id="dir-icon">▶</span>
+        </div>
+        <div class="directory-content" id="directoryList">
+            <!-- Wird dynamisch gefüllt -->
+        </div>
     </div>
 </div>
 
+<!-- Leaflet.js JS für die Karte -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
 <script>
-    // --- DATENBANK DER BZ LANDQUART (Aus dem Foto) ---
-    // Die Telefonnummern wurden für das Smartphone ins Format +41 81... umgewandelt
+    // --- DATENBANK AUS DEM BILD (Formatierung angepasst) ---
     const bzTelefonbuch = [
-        { route: "(Chur) - Untervaz", keys: ["chur", "untervaz"], phone: "+41812882682" },
-        { route: "Landquart - (Untervaz)", keys: ["landquart", "untervaz"], phone: "+41812882681" },
-        { route: "(Landquart) - Schiers", keys: ["landquart", "schiers"], phone: "+41812882660" },
-        { route: "(Chur) - Arosa", keys: ["arosa"], phone: "+41812882696" },
-        { route: "Chur - (Felsberg)", keys: ["chur", "felsberg"], phone: "+41812882617" },
-        { route: "Felsberg - Reichenau", keys: ["felsberg", "reichenau"], phone: "+41812882685" },
-        { route: "(Reichenau) - (Rueun)", keys: ["reichenau", "rueun", "ilanz"], phone: "+41812882686" }, // Ilanz als Hilfe hinzugefügt
-        { route: "Rueun - Disentis", keys: ["rueun", "disentis"], phone: "+41812882621" },
-        { route: "(Reichenau) - Thusis", keys: ["reichenau", "thusis"], phone: "+41812882683" },
-        { route: "(Thusis) - Filisur", keys: ["thusis", "filisur", "tiefencastel"], phone: "+41812882684" },
-        { route: "(Filisur) - (Bever)", keys: ["filisur", "bever", "bergün"], phone: "+41812882605" },
-        { route: "S-chanf - (St.Moritz)", keys: ["s-chanf", "st.moritz", "zuoz", "samedan"], phone: "+41812882667" },
-        { route: "St.Moritz - Pontresina", keys: ["st.moritz", "pontresina"], phone: "+41812882641" },
-        { route: "(St.Moritz) - (Pontresina) - Bever", keys: ["pontresina", "bever"], phone: "+41812882667" },
-        { route: "(Pontresina) - (Poschiavo)", keys: ["pontresina", "poschiavo", "bernina"], phone: "+41812882664" },
-        { route: "Poschiavo - (Tirano)", keys: ["poschiavo", "tirano", "brusio"], phone: "+41812882665" },
-        { route: "(Schiers) - Klosters", keys: ["schiers", "klosters", "küblis"], phone: "+41812883711" },
-        { route: "(Klosters) - Davos", keys: ["klosters", "davos", "wolfgang"], phone: "+41812883602" },
-        { route: "(Davos) - (Filisur)", keys: ["davos", "filisur", "wiesen"], phone: "+41812883631" },
-        { route: "(Klosters) - Sagliains", keys: ["klosters", "sagliains", "vereina"], phone: "+41812883601" },
-        { route: "Scuol - Susch", keys: ["scuol", "susch", "tarasp"], phone: "+41812883603" },
-        { route: "(Susch) - (Bever)", keys: ["susch", "bever", "zernez"], phone: "+41812883635" },
-        { route: "Tirano (nicht fernsteuerbar)", keys: ["tirano"], phone: "+41812885440" }
+        { bezeichn: "BZ Landquart", route: "(Chur) - Untervaz", phone: "0812882682", meta: "" },
+        { bezeichn: "BZ Landquart", route: "Landquart - (Untervaz)", phone: "0812882681", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(Landquart) - Schiers", phone: "0812882660", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(Chur) - Arosa", phone: "0812882696", meta: "" },
+        { bezeichn: "BZ Landquart", route: "Chur - (Felsberg)", phone: "0812882617", meta: "" },
+        { bezeichn: "BZ Landquart", route: "Felsberg - Reichenau", phone: "0812882685", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(Reichenau) - (Rueun)", phone: "0812882686", meta: "" },
+        { bezeichn: "BZ Landquart", route: "Rueun - Disentis", phone: "0812882621", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(Reichenau) - Thusis", phone: "0812882683", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(Thusis) - Filisur", phone: "0812882684", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(Filisur) - (Bever)", phone: "0812882605", meta: "" },
+        { bezeichn: "BZ Landquart", route: "S-chanf - (St.Moritz)", phone: "0812882667", meta: "" },
+        { bezeichn: "BZ Landquart", route: "St.Moritz - Pontresina", phone: "0812882641", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(St.Moritz) - (Pontresina) - Bever", phone: "0812882667", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(Pontresina) - (Poschiavo)", phone: "0812882664", meta: "() exklusiv" },
+        { bezeichn: "BZ Landquart", route: "Poschiavo - (Tirano)", phone: "0812882665", meta: "() exklusiv" },
+        { bezeichn: "BZ Landquart", route: "(Schiers) - Klosters", phone: "0812883711", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(Klosters) - Davos", phone: "0812883602", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(Davos) - (Filisur)", phone: "0812883631", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(Klosters) - Sagliains", phone: "0812883601", meta: "" },
+        { bezeichn: "BZ Landquart", route: "Scuol - Susch", phone: "0812883603", meta: "" },
+        { bezeichn: "BZ Landquart", route: "(Susch) - (Bever)", phone: "0812883635", meta: "" },
+        { bezeichn: "Nicht Fernsteuerbar", route: "Tirano (nicht Fernsteuerbar)", phone: "0812885440", meta: "" }
     ];
 
-    // Swisstopo Näherungsformel WGS84 -> LV95
-    function convertWGSToLV95(lat, lng) {
-        const phi = (lat * 3600 - 169028.66) / 10000;
-        const lambda = (lng * 3600 - 26782.5) / 10000;
-        const E = 2600072.37 + 211455.93 * lambda - 10938.51 * lambda * phi - 0.36 * lambda * Math.pow(phi, 2) - 44.54 * Math.pow(lambda, 3);
-        const N = 1200147.07 + 308807.95 * phi + 3745.25 * Math.pow(lambda, 2) + 76.63 * Math.pow(phi, 2) - 194.56 * Math.pow(lambda, 2) * phi + 119.79 * Math.pow(phi, 3);
-        return { E: Math.round(E), N: Math.round(N) };
+    let map, userMarker, watchId;
+    let autoCallBtn = document.getElementById('autoCallButton');
+    let infoBox = document.getElementById('info');
+
+    // --- INITIALISIERUNG ---
+    initMap();
+    buildManualDirectory();
+
+    // --- KARTEN-FUNKTIONEN ---
+    function initMap() {
+        // Karte initialisieren und auf Graubünden zentrieren (CH-Koordinaten LV95 benutzen)
+        map = L.map('map', {
+            crs: L.CRS.EPSG2056, // Swisstopo benötigt EPSG2056
+            continuousWorld: true,
+            worldCopyJump: false
+        }).setView([46.7, 9.7], 10); // Grobe Zentrierung Graubünden
+
+        // Swisstopo Landeskarte farbig (BaseMap)
+        L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/2056/{z}/{x}/{y}.jpeg', {
+            attribution: '&copy; swisstopo',
+            minZoom: 2,
+            maxZoom: 18
+        }).addTo(map);
+
+        // BAV Schienennetz-Layer über die Karte legen (Das Schienennetz selbst)
+        L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.bav.schienennetz/default/current/2056/{z}/{x}/{y}.png', {
+            attribution: '&copy; BAV',
+            opacity: 0.8,
+            minZoom: 8
+        }).addTo(map);
+        
+        // Initialen Marker setzen
+        userMarker = L.marker([46.7, 9.7], {
+            icon: L.divIcon({className: 'user-location-icon', html: '<div style="background-color: blue; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>'})
+        }).addTo(map);
     }
 
-    function getLocation(isTest) {
-        document.getElementById('output').style.display = "block";
-        document.getElementById('callButton').style.display = "none";
-        document.getElementById('debugInfo').innerHTML = "";
-        document.getElementById('networkInfo').innerHTML = "Suche Geodaten...";
+    // --- GPS TRACKING UND AUTOMATISCHE ANRUFFUNKTION ---
+    function startTracking() {
+        toggleControls(false); // Panel minimieren
+        infoBox.innerHTML = "Warte auf GPS-Signal...";
+        if (watchId) navigator.geolocation.clearWatch(watchId); // Alte Verfolgung stoppen
 
-        if (isTest) {
-            // Simulierte Koordinaten: Filisur Bahnhof
-            processPosition({ coords: { latitude: 46.6715, longitude: 9.6865 } });
-        } else {
-            if (navigator.geolocation) {
-                document.getElementById('coords').innerHTML = "Suche GPS-Signal...";
-                navigator.geolocation.getCurrentPosition(processPosition, showError, { enableHighAccuracy: true });
-            } else {
-                alert("Geolocation wird nicht unterstützt.");
-            }
-        }
+        watchId = navigator.geolocation.watchPosition(
+            (pos) => updateLocation(pos.coords.latitude, pos.coords.longitude, false),
+            (err) => { infoBox.innerHTML = "GPS-Fehler: " + err.message; },
+            { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
+        );
     }
 
-    async function processPosition(position) {
-        let lat = position.coords.latitude;
-        let lon = position.coords.longitude;
+    function simulatePosition() {
+        toggleControls(false); // Panel minimieren
+        // Simulation bei Poschiavo Bahnhof
+        updateLocation(46.3150, 10.0550, true);
+    }
 
-        let lv95 = convertWGSToLV95(lat, lon);
-        document.getElementById('coords').innerHTML = `WGS84: ${lat.toFixed(4)}, ${lon.toFixed(4)}<br>LV95: E ${lv95.E}, N ${lv95.N}`;
+    async function updateLocation(lat, lng, isSimulated) {
+        let newLatLng = [lat, lng];
+        userMarker.setLatLng(newLatLng);
+        map.setView(newLatLng, 15); // Auf Position zoomen
+        
+        infoBox.innerHTML = `WGS84: ${lat.toFixed(4)}, ${lng.toFixed(4)}` + (isSimulated ? " (Test)" : "");
 
-        await fetchSwisstopoData(lv95.E, lv95.N);
+        // Exakte LV95 Meter-Koordinaten für die API berechnen (Swisstopo benötigt 7-8 stellige Meter)
+        // Wir nutzen eine sehr vereinfachte Näherung für den LV95 Layer
+        let lv95_E = 2600000 + (lng - 7.4) * 75000;
+        let lv95_N = 1200000 + (lat - 46.9) * 111000;
+        
+        // Swisstopo API abfragen (Wie im vorherigen Schritt gelernt, layer:ch.bav.schienennetz)
+        await fetchSwisstopoData(lv95_E, lv95_N);
     }
 
     async function fetchSwisstopoData(E, N) {
-        const url = `https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${E},${N}&imageDisplay=800,600,96&mapExtent=${E-400},${N-300},${E+400},${N+300}&tolerance=50&layers=all:ch.bav.schienennetz&sr=2056&returnGeometry=false`;
+        // Toleranz auf 70m erhöht für besseres Snapping im Gebirge
+        const url = `https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${E},${N}&imageDisplay=800,600,96&mapExtent=${E-200},${N-200},${E+200},${N+200}&tolerance=70&layers=all:ch.bav.schienennetz&sr=2056&returnGeometry=false`;
 
         try {
             let response = await fetch(url);
             let data = await response.json();
 
-            if (data.results && data.results.length > 0) {
-                let trackAttributes = data.results[0].attributes;
-                let betreiber = trackAttributes.betreiber || "Unbekannt";
-                let streckeBAV = trackAttributes.streckenbezeichnung || "Keine Bezeichnung";
-                
-                document.getElementById('networkInfo').innerHTML = 
-                    `<strong>Betreiber:</strong> ${betreiber}<br>
-                     <strong>BAV-Strecke:</strong> ${streckeBAV}`;
+            autoCallBtn.style.display = "none"; // Vorherigen Button verstecken
 
-                if (betreiber.includes("RhB") || betreiber.includes("Rhätische Bahn")) {
+            if (data.results && data.results.length > 0) {
+                let attr = data.results[0].attributes;
+                let betreiber = attr.betreiber || "";
+                let streckeBAV = attr.streckenbezeichnung || "Schiene erkannt";
+                
+                infoBox.innerHTML += `<br>Gleis: ${streckeBAV} (${betreiber})`;
+
+                if (betreiber.includes("RhB")) {
                     matchAndSetupCall(streckeBAV);
-                } else {
-                    document.getElementById('networkInfo').innerHTML += `<br><br><span style="color:red">Dies ist keine RhB Strecke.</span>`;
                 }
             } else {
-                document.getElementById('networkInfo').innerHTML = "Kein Schienennetz im Umkreis von 50m gefunden.";
+                infoBox.innerHTML += "<br>Keine RhB-Schiene im Umkreis von 70m.";
             }
         } catch (error) {
-            document.getElementById('networkInfo').innerHTML = "Fehler bei der Verbindung zum Bundesgeoportal.";
             console.error(error);
         }
     }
 
+    // --- SMARTE ANRUFZUORDNUNG (Aus Foto-Datenbank) ---
     function matchAndSetupCall(streckeBAV) {
         let streckeLower = streckeBAV.toLowerCase();
         let bestMatch = null;
         let maxScore = 0;
 
-        // Gehe das Telefonbuch durch und suche nach Übereinstimmungen
+        // Scoring: Gleiche BAV-Namen mit Schlüsselwörtern aus deinem Bild ab
         for (let entry of bzTelefonbuch) {
             let score = 0;
-            for (let key of entry.keys) {
-                if (streckeLower.includes(key)) {
-                    score++;
-                }
+            let keys = entry.route.replace(/[()]/g, "").toLowerCase().split(/[\s-]+/); // Schlüsselwörter bereinigen
+            
+            for (let key of keys) {
+                if (streckeLower.includes(key)) score++;
             }
-            // Wenn der aktuelle Eintrag mehr Treffer hat, übernimm ihn
-            if (score > maxScore) {
-                maxScore = score;
-                bestMatch = entry;
-            }
+            if (score > maxScore) { maxScore = score; bestMatch = entry; }
         }
 
-        let callBtn = document.getElementById('callButton');
-        let debugText = document.getElementById('debugInfo');
-
-        if (bestMatch) {
-            callBtn.href = `tel:${bestMatch.phone}`;
-            callBtn.innerHTML = `📞 Anruf: ${bestMatch.route}`;
-            callBtn.style.display = "block";
-            debugText.innerHTML = `Ausgewählt anhand interner Liste. (Score: ${maxScore})`;
-        } else {
-            // Fallback, falls die BAV Daten zu stark abweichen
-            callBtn.href = `tel:+41812882682`; // Fallback auf BZ Landquart Allgemein
-            callBtn.innerHTML = `📞 BZ Landquart (Standard) anrufen`;
-            callBtn.style.display = "block";
-            debugText.innerHTML = `⚠️ Konnte Streckenabschnitt nicht exakt zuordnen. Bitte Nummer prüfen.`;
+        if (bestMatch && maxScore > 1) { // Nur bei guter Übereinstimmung
+            // Nummer für Smartphone formatieren (Landesvorwahl +41, erste 0 weg)
+            let rawNum = bestMatch.phone.replace(/[^0-9]/g, "");
+            let formattedNum = "+41" + rawNum.substring(1);
+            
+            autoCallBtn.href = `tel:${formattedNum}`;
+            autoCallBtn.innerHTML = `📞 ${bestMatch.route} anrufen`;
+            autoCallBtn.style.display = "block";
         }
     }
 
-    function showError(error) {
-        document.getElementById('coords').innerHTML = "Fehler bei der GPS-Ortung.";
+    // --- MANUELLES VERZEICHNIS BAUEN UND STEUERN ---
+    function buildManualDirectory() {
+        let listContainer = document.getElementById('directoryList');
+        
+        bzTelefonbuch.forEach(entry => {
+            let divItem = document.createElement('div');
+            divItem.className = 'directory-item';
+            
+            // Nummer für Smartphone formatieren
+            let rawNum = entry.phone.replace(/[^0-9]/g, "");
+            let formattedNum = "+41" + rawNum.substring(1);
+            
+            divItem.innerHTML = `
+                <span class="sector-title">${entry.route}</span>
+                <span class="sector-meta">${entry.bezeichn}${entry.meta ? ' (' + entry.meta + ')' : ''}</span>
+                <a href="tel:${formattedNum}" class="phone-link">${entry.phone}</a>
+            `;
+            listContainer.appendChild(divItem);
+        });
+    }
+
+    // --- UI STEUERUNG (AUFKLAPPEN) ---
+    function toggleDirectory() {
+        document.getElementById('directoryList').classList.toggle('open');
+        document.getElementById('dir-icon').innerHTML = 
+            document.getElementById('directoryList').classList.contains('open') ? '▼' : '▶';
+    }
+
+    function toggleControls(forceState) {
+        let panel = document.getElementById('controls');
+        if (typeof forceState !== 'undefined') {
+            if (forceState) panel.classList.remove('minimized');
+            else panel.classList.add('minimized');
+        } else {
+            panel.classList.toggle('minimized');
+        }
     }
 </script>
 
