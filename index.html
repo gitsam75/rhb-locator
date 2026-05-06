@@ -15,17 +15,17 @@
         .btn-test:hover { background-color: #333; }
         .call-btn { background-color: #28a745; text-decoration: none; display: inline-block; text-align: center; box-sizing: border-box; width: 100%; padding: 15px; color: white; border-radius: 5px; font-size: 16px; margin-top: 10px; font-weight: bold; }
         .call-btn:hover { background-color: #218838; }
+        .info-text { font-size: 12px; color: #666; margin-top: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>RhB Locator Pro</h2>
-    <p>Live-Daten via Bundesamt für Verkehr (BAV)</p>
+    <p>Live-Daten BAV & BZ Landquart Telefonbuch</p>
 
     <button onclick="getLocation(false)">📍 Mein echtes GPS nutzen</button>
-    <!-- Test-Button für die Entwicklung zu Hause -->
-    <button class="btn-test" onclick="getLocation(true)">🧪 Test: Standort Chur simulieren</button>
+    <button class="btn-test" onclick="getLocation(true)">🧪 Test: Standort simulieren</button>
 
     <div id="output" style="display: none;">
         <h3>Koordinaten:</h3>
@@ -35,29 +35,57 @@
         <div class="data-box" id="networkInfo">Daten werden vom Bund geladen...</div>
 
         <a id="callButton" href="#" class="call-btn" style="display: none;">📞 Fahrdienst anrufen</a>
+        <div id="debugInfo" class="info-text"></div>
     </div>
 </div>
 
 <script>
-    // Offizielle Swisstopo Näherungsformel WGS84 -> LV95
+    // --- DATENBANK DER BZ LANDQUART (Aus dem Foto) ---
+    // Die Telefonnummern wurden für das Smartphone ins Format +41 81... umgewandelt
+    const bzTelefonbuch = [
+        { route: "(Chur) - Untervaz", keys: ["chur", "untervaz"], phone: "+41812882682" },
+        { route: "Landquart - (Untervaz)", keys: ["landquart", "untervaz"], phone: "+41812882681" },
+        { route: "(Landquart) - Schiers", keys: ["landquart", "schiers"], phone: "+41812882660" },
+        { route: "(Chur) - Arosa", keys: ["arosa"], phone: "+41812882696" },
+        { route: "Chur - (Felsberg)", keys: ["chur", "felsberg"], phone: "+41812882617" },
+        { route: "Felsberg - Reichenau", keys: ["felsberg", "reichenau"], phone: "+41812882685" },
+        { route: "(Reichenau) - (Rueun)", keys: ["reichenau", "rueun", "ilanz"], phone: "+41812882686" }, // Ilanz als Hilfe hinzugefügt
+        { route: "Rueun - Disentis", keys: ["rueun", "disentis"], phone: "+41812882621" },
+        { route: "(Reichenau) - Thusis", keys: ["reichenau", "thusis"], phone: "+41812882683" },
+        { route: "(Thusis) - Filisur", keys: ["thusis", "filisur", "tiefencastel"], phone: "+41812882684" },
+        { route: "(Filisur) - (Bever)", keys: ["filisur", "bever", "bergün"], phone: "+41812882605" },
+        { route: "S-chanf - (St.Moritz)", keys: ["s-chanf", "st.moritz", "zuoz", "samedan"], phone: "+41812882667" },
+        { route: "St.Moritz - Pontresina", keys: ["st.moritz", "pontresina"], phone: "+41812882641" },
+        { route: "(St.Moritz) - (Pontresina) - Bever", keys: ["pontresina", "bever"], phone: "+41812882667" },
+        { route: "(Pontresina) - (Poschiavo)", keys: ["pontresina", "poschiavo", "bernina"], phone: "+41812882664" },
+        { route: "Poschiavo - (Tirano)", keys: ["poschiavo", "tirano", "brusio"], phone: "+41812882665" },
+        { route: "(Schiers) - Klosters", keys: ["schiers", "klosters", "küblis"], phone: "+41812883711" },
+        { route: "(Klosters) - Davos", keys: ["klosters", "davos", "wolfgang"], phone: "+41812883602" },
+        { route: "(Davos) - (Filisur)", keys: ["davos", "filisur", "wiesen"], phone: "+41812883631" },
+        { route: "(Klosters) - Sagliains", keys: ["klosters", "sagliains", "vereina"], phone: "+41812883601" },
+        { route: "Scuol - Susch", keys: ["scuol", "susch", "tarasp"], phone: "+41812883603" },
+        { route: "(Susch) - (Bever)", keys: ["susch", "bever", "zernez"], phone: "+41812883635" },
+        { route: "Tirano (nicht fernsteuerbar)", keys: ["tirano"], phone: "+41812885440" }
+    ];
+
+    // Swisstopo Näherungsformel WGS84 -> LV95
     function convertWGSToLV95(lat, lng) {
         const phi = (lat * 3600 - 169028.66) / 10000;
         const lambda = (lng * 3600 - 26782.5) / 10000;
-
         const E = 2600072.37 + 211455.93 * lambda - 10938.51 * lambda * phi - 0.36 * lambda * Math.pow(phi, 2) - 44.54 * Math.pow(lambda, 3);
         const N = 1200147.07 + 308807.95 * phi + 3745.25 * Math.pow(lambda, 2) + 76.63 * Math.pow(phi, 2) - 194.56 * Math.pow(lambda, 2) * phi + 119.79 * Math.pow(phi, 3);
-
         return { E: Math.round(E), N: Math.round(N) };
     }
 
     function getLocation(isTest) {
         document.getElementById('output').style.display = "block";
         document.getElementById('callButton').style.display = "none";
+        document.getElementById('debugInfo').innerHTML = "";
         document.getElementById('networkInfo').innerHTML = "Suche Geodaten...";
 
         if (isTest) {
-            // Simulierte Koordinaten in Chur in Gleisnähe
-            processPosition({ coords: { latitude: 46.8530, longitude: 9.5300 } });
+            // Simulierte Koordinaten: Filisur Bahnhof
+            processPosition({ coords: { latitude: 46.6715, longitude: 9.6865 } });
         } else {
             if (navigator.geolocation) {
                 document.getElementById('coords').innerHTML = "Suche GPS-Signal...";
@@ -72,16 +100,13 @@
         let lat = position.coords.latitude;
         let lon = position.coords.longitude;
 
-        // 1. In Schweizer Koordinaten umrechnen
         let lv95 = convertWGSToLV95(lat, lon);
         document.getElementById('coords').innerHTML = `WGS84: ${lat.toFixed(4)}, ${lon.toFixed(4)}<br>LV95: E ${lv95.E}, N ${lv95.N}`;
 
-        // 2. Swisstopo API abfragen
         await fetchSwisstopoData(lv95.E, lv95.N);
     }
 
     async function fetchSwisstopoData(E, N) {
-        // Such-Toleranz: ca. 50 Meter um den Standort herum im Layer "ch.bav.schienennetz"
         const url = `https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${E},${N}&imageDisplay=800,600,96&mapExtent=${E-400},${N-300},${E+400},${N+300}&tolerance=50&layers=all:ch.bav.schienennetz&sr=2056&returnGeometry=false`;
 
         try {
@@ -89,27 +114,21 @@
             let data = await response.json();
 
             if (data.results && data.results.length > 0) {
-                // Wir nehmen das erste gefundene Gleis
                 let trackAttributes = data.results[0].attributes;
-                
-                // Prüfen ob es sich um eine RhB Strecke handelt (Die BAV Daten enthalten ein Feld 'betreiber')
                 let betreiber = trackAttributes.betreiber || "Unbekannt";
-                let strecke = trackAttributes.streckenbezeichnung || "Keine Bezeichnung";
+                let streckeBAV = trackAttributes.streckenbezeichnung || "Keine Bezeichnung";
                 
                 document.getElementById('networkInfo').innerHTML = 
                     `<strong>Betreiber:</strong> ${betreiber}<br>
-                     <strong>Strecke:</strong> ${strecke}<br>
-                     <br><small><em>(Rohdaten vom BAV erfolgreich geladen)</em></small>`;
+                     <strong>BAV-Strecke:</strong> ${streckeBAV}`;
 
-                // Wenn es die RhB ist, Anruf-Button aktivieren
                 if (betreiber.includes("RhB") || betreiber.includes("Rhätische Bahn")) {
-                    setupCallButton(strecke);
+                    matchAndSetupCall(streckeBAV);
                 } else {
                     document.getElementById('networkInfo').innerHTML += `<br><br><span style="color:red">Dies ist keine RhB Strecke.</span>`;
                 }
-
             } else {
-                document.getElementById('networkInfo').innerHTML = "Kein Schienennetz im Umkreis von 50m gefunden. Bist du am Gleis?";
+                document.getElementById('networkInfo').innerHTML = "Kein Schienennetz im Umkreis von 50m gefunden.";
             }
         } catch (error) {
             document.getElementById('networkInfo').innerHTML = "Fehler bei der Verbindung zum Bundesgeoportal.";
@@ -117,26 +136,41 @@
         }
     }
 
-    function setupCallButton(strecke) {
-        let callBtn = document.getElementById('callButton');
-        let phone = "+41810000000"; // Platzhalter
-        let netzName = "RhB Fahrdienst";
+    function matchAndSetupCall(streckeBAV) {
+        let streckeLower = streckeBAV.toLowerCase();
+        let bestMatch = null;
+        let maxScore = 0;
 
-        // Einfache Text-Analyse, um das Netz aus der Streckenbezeichnung zu erraten
-        if (strecke.toLowerCase().includes("arosa")) {
-            netzName = "Fahrdienst Arosabahn";
-            phone = "+41810000001";
-        } else if (strecke.toLowerCase().includes("bernina") || strecke.toLowerCase().includes("tirano")) {
-            netzName = "Fahrdienst Berninabahn";
-            phone = "+41810000002";
-        } else {
-            netzName = "Fahrdienst Stammnetz";
-            phone = "+41810000003";
+        // Gehe das Telefonbuch durch und suche nach Übereinstimmungen
+        for (let entry of bzTelefonbuch) {
+            let score = 0;
+            for (let key of entry.keys) {
+                if (streckeLower.includes(key)) {
+                    score++;
+                }
+            }
+            // Wenn der aktuelle Eintrag mehr Treffer hat, übernimm ihn
+            if (score > maxScore) {
+                maxScore = score;
+                bestMatch = entry;
+            }
         }
 
-        callBtn.href = `tel:${phone}`;
-        callBtn.innerHTML = `📞 ${netzName} anrufen`;
-        callBtn.style.display = "block";
+        let callBtn = document.getElementById('callButton');
+        let debugText = document.getElementById('debugInfo');
+
+        if (bestMatch) {
+            callBtn.href = `tel:${bestMatch.phone}`;
+            callBtn.innerHTML = `📞 Anruf: ${bestMatch.route}`;
+            callBtn.style.display = "block";
+            debugText.innerHTML = `Ausgewählt anhand interner Liste. (Score: ${maxScore})`;
+        } else {
+            // Fallback, falls die BAV Daten zu stark abweichen
+            callBtn.href = `tel:+41812882682`; // Fallback auf BZ Landquart Allgemein
+            callBtn.innerHTML = `📞 BZ Landquart (Standard) anrufen`;
+            callBtn.style.display = "block";
+            debugText.innerHTML = `⚠️ Konnte Streckenabschnitt nicht exakt zuordnen. Bitte Nummer prüfen.`;
+        }
     }
 
     function showError(error) {
