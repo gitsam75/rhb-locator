@@ -3,269 +3,264 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>RhB Fahrdienst-Locator Pro Map</title>
+    <title>RhB Fahrdienst-Locator Pro</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#e3000f">
-    <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Rhaetische_Bahn.svg/512px-Rhaetische_Bahn.svg.png">
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; color: #333; height: 100vh; display: flex; flex-direction: column; }
-        /* Karten-Container soll den Großteil des Bildschirms einnehmen */
-        #map { flex-grow: 1; width: 100%; position: relative; z-index: 1;}
-        
-        /* Steuerungspanel unter der Karte */
-        .controls { background: white; padding: 15px; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -4px 15px rgba(0,0,0,0.15); position: fixed; bottom: 0; width: 100%; box-sizing: border-box; z-index: 1000; transition: transform 0.3s ease; max-height: 85vh; display: flex; flex-direction: column;}
-        .controls.minimized { transform: translateY(calc(100% - 60px)); } /* Panel fast ganz verstecken */
-        
-        .controls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; cursor: pointer; padding-bottom: 10px; border-bottom: 1px solid #eee; }
-        h2 { color: #e3000f; margin: 0; font-size: 1.2em; }
-        .toggle-icon { font-size: 1.2em; transition: transform 0.3s ease; color: #666; }
-        .controls.minimized .toggle-icon { transform: rotate(180deg); }
-        
-        .scrollable-content { overflow-y: auto; padding-bottom: 20px;}
-        
-        .data-box { background: #eee; padding: 10px; margin: 8px 0; border-radius: 5px; font-family: monospace; font-size: 12px; word-wrap: break-word;}
-        button { width: 100%; padding: 12px; background-color: #e3000f; color: white; border: none; border-radius: 5px; font-size: 15px; cursor: pointer; margin-bottom: 8px; font-weight: bold;}
-        button:hover { background-color: #cc000d; }
-        .btn-test { background-color: #555; }
-        .btn-test:hover { background-color: #333; }
-        .call-btn { background-color: #28a745; text-decoration: none; display: inline-block; text-align: center; box-sizing: border-box; width: 100%; padding: 12px; color: white; border-radius: 5px; font-size: 15px; font-weight: bold; margin-bottom: 8px;}
-        .call-btn:hover { background-color: #218838; }
-        
-        /* Styles für das aufklappbare Verzeichnis */
-        .directory-container { margin-top: 10px; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; background: white;}
-        .directory-header { background-color: #f8f9fa; padding: 12px; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; align-items: center;}
-        .directory-content { display: none; background-color: white;}
-        .directory-content.open { display: block; }
-        .directory-item { border-top: 1px solid #eee; padding: 12px; display: flex; flex-direction: column; }
-        .sector-title { font-size: 14px; margin-bottom: 4px; font-weight: bold; }
-        .sector-meta { font-size: 12px; color: #666; font-style: italic; margin-bottom: 8px; }
-        .phone-link { font-size: 15px; color: #28a745; text-decoration: none; font-family: monospace; font-weight: bold; background: #e8f5e9; padding: 8px; border-radius: 4px; text-align: center;}
+        * { box-sizing: border-box; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f4f4f9; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden;
+        }
+
+        /* Karte oben - nimmt 50% des Bildschirms ein */
+        #map { 
+            width: 100%; 
+            height: 45vh; 
+            border-bottom: 3px solid #e3000f;
+            z-index: 1;
+        }
+
+        /* Panel unten - nimmt den Rest ein und ist IMMER SICHTBAR */
+        .controls { 
+            width: 100%; 
+            height: 55vh; 
+            background: white; 
+            padding: 15px; 
+            display: flex; 
+            flex-direction: column;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        h2 { color: #e3000f; margin: 0; font-size: 1.3em; }
+
+        .scroll-area {
+            overflow-y: auto;
+            flex-grow: 1;
+            padding-bottom: 10px;
+        }
+
+        .data-box { 
+            background: #f0f0f0; 
+            padding: 12px; 
+            margin-bottom: 10px; 
+            border-left: 5px solid #e3000f;
+            font-family: monospace; 
+            font-size: 13px;
+        }
+
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            background-color: #e3000f; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            margin-bottom: 10px; 
+            font-weight: bold;
+            transition: background 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:active { background-color: #a3000b; transform: scale(0.98); }
+
+        .btn-test { background-color: #444; }
+        .btn-test:active { background-color: #222; }
+
+        .call-btn { 
+            background-color: #28a745; 
+            text-decoration: none; 
+            display: block; 
+            text-align: center; 
+            width: 100%; 
+            padding: 16px; 
+            color: white; 
+            border-radius: 6px; 
+            font-size: 16px; 
+            font-weight: bold; 
+            margin-bottom: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Verzeichnis Styles */
+        .dir-container { border: 1px solid #ccc; border-radius: 6px; margin-top: 10px; }
+        .dir-head { background: #eee; padding: 12px; font-weight: bold; font-size: 14px; cursor: pointer; border-radius: 6px; }
+        .dir-list { display: none; background: white; }
+        .dir-list.open { display: block; }
+        .dir-item { 
+            padding: 12px; 
+            border-top: 1px solid #eee; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        .dir-title { font-weight: bold; font-size: 14px; color: #333; }
+        .dir-link { 
+            color: #28a745; 
+            text-decoration: none; 
+            font-weight: bold; 
+            margin-top: 5px; 
+            padding: 8px; 
+            background: #f0fff0; 
+            border-radius: 4px; 
+            text-align: center; 
+        }
     </style>
 </head>
 <body>
 
 <div id="map"></div>
 
-<div class="controls minimized" id="controls">
-    <div class="controls-header" onclick="toggleControls()">
+<div class="controls">
+    <div class="header">
         <h2>RhB Fahrdienst Locator</h2>
-        <span class="toggle-icon">▼</span>
     </div>
-    
-    <div class="scrollable-content">
-        <button onclick="startTracking()">📍 Meine Position fixieren & verfolgen</button>
-        <button class="btn-test" onclick="simulatePosition()">🧪 Test: Standort simulieren (Poschiavo)</button>
-        
-        <div class="data-box" id="info">GPS inaktiv. Bitte auf 'Meine Position fixieren' tippen.</div>
-        <a id="autoCallButton" href="#" class="call-btn" style="display: none;">📞 Automatisch erkannte Nummer</a>
 
-        <div class="directory-container">
-            <div class="directory-header" onclick="toggleDirectory()">
-                <span>📞 Manuelles Telefonbuch öffnen</span>
-                <span id="dir-icon">▶</span>
-            </div>
-            <div class="directory-content" id="directoryList">
-                </div>
+    <div class="scroll-area">
+        <button onclick="startTracking()">📍 Position verfolgen</button>
+        <button class="btn-test" onclick="simulatePosition()">🧪 Test: Poschiavo (Simulation)</button>
+        
+        <div class="data-box" id="info">GPS Status: Inaktiv</div>
+        
+        <a id="autoCallBtn" href="#" class="call-btn" style="display: none;">📞 Automatische Nummer</a>
+
+        <div class="dir-container">
+            <div class="dir-head" onclick="toggleDirectory()">📞 Manuelles Telefonbuch (Anzeigen)</div>
+            <div class="dir-list" id="dirList"></div>
         </div>
     </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // --- DATENBANK AUS DEM BILD ---
     const bzTelefonbuch = [
-        { bezeichn: "BZ Landquart", route: "(Chur) - Untervaz", phone: "0812882682", meta: "" },
-        { bezeichn: "BZ Landquart", route: "Landquart - (Untervaz)", phone: "0812882681", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(Landquart) - Schiers", phone: "0812882660", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(Chur) - Arosa", phone: "0812882696", meta: "" },
-        { bezeichn: "BZ Landquart", route: "Chur - (Felsberg)", phone: "0812882617", meta: "" },
-        { bezeichn: "BZ Landquart", route: "Felsberg - Reichenau", phone: "0812882685", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(Reichenau) - (Rueun)", phone: "0812882686", meta: "" },
-        { bezeichn: "BZ Landquart", route: "Rueun - Disentis", phone: "0812882621", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(Reichenau) - Thusis", phone: "0812882683", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(Thusis) - Filisur", phone: "0812882684", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(Filisur) - (Bever)", phone: "0812882605", meta: "" },
-        { bezeichn: "BZ Landquart", route: "S-chanf - (St.Moritz)", phone: "0812882667", meta: "" },
-        { bezeichn: "BZ Landquart", route: "St.Moritz - Pontresina", phone: "0812882641", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(St.Moritz) - (Pontresina) - Bever", phone: "0812882667", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(Pontresina) - (Poschiavo)", phone: "0812882664", meta: "() exklusiv" },
-        { bezeichn: "BZ Landquart", route: "Poschiavo - (Tirano)", phone: "0812882665", meta: "() exklusiv" },
-        { bezeichn: "BZ Landquart", route: "(Schiers) - Klosters", phone: "0812883711", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(Klosters) - Davos", phone: "0812883602", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(Davos) - (Filisur)", phone: "0812883631", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(Klosters) - Sagliains", phone: "0812883601", meta: "" },
-        { bezeichn: "BZ Landquart", route: "Scuol - Susch", phone: "0812883603", meta: "" },
-        { bezeichn: "BZ Landquart", route: "(Susch) - (Bever)", phone: "0812883635", meta: "" },
-        { bezeichn: "Nicht Fernsteuerbar", route: "Tirano (nicht Fernsteuerbar)", phone: "0812885440", meta: "" }
+        { route: "(Chur) - Untervaz", phone: "0812882682" },
+        { route: "Landquart - (Untervaz)", phone: "0812882681" },
+        { route: "(Landquart) - Schiers", phone: "0812882660" },
+        { route: "(Chur) - Arosa", phone: "0812882696" },
+        { route: "Chur - (Felsberg)", phone: "0812882617" },
+        { route: "Felsberg - Reichenau", phone: "0812882685" },
+        { route: "(Reichenau) - (Rueun)", phone: "0812882686" },
+        { route: "Rueun - Disentis", phone: "0812882621" },
+        { route: "(Reichenau) - Thusis", phone: "0812882683" },
+        { route: "(Thusis) - Filisur", phone: "0812882684" },
+        { route: "(Filisur) - (Bever)", phone: "0812882605" },
+        { route: "S-chanf - (St.Moritz)", phone: "0812882667" },
+        { route: "St.Moritz - Pontresina", phone: "0812882641" },
+        { route: "(St.Moritz) - (Pontresina) - Bever", phone: "0812882667" },
+        { route: "(Pontresina) - (Poschiavo)", phone: "0812882664" },
+        { route: "Poschiavo - (Tirano)", phone: "0812882665" },
+        { route: "(Schiers) - Klosters", phone: "0812883711" },
+        { route: "(Klosters) - Davos", phone: "0812883602" },
+        { route: "(Davos) - (Filisur)", phone: "0812883631" },
+        { route: "(Klosters) - Sagliains", phone: "0812883601" },
+        { route: "Scuol - Susch", phone: "0812883603" },
+        { route: "(Susch) - (Bever)", phone: "0812883635" },
+        { route: "Tirano (Nicht Fernst.)", phone: "0812885440" }
     ];
 
     let map, userMarker, watchId;
-    let autoCallBtn = document.getElementById('autoCallButton');
-    let infoBox = document.getElementById('info');
+    const info = document.getElementById('info');
+    const autoCall = document.getElementById('autoCallBtn');
 
-    // --- INITIALISIERUNG ---
-    initMap();
-    buildManualDirectory();
+    // Init Karte
+    map = L.map('map', { crs: L.CRS.EPSG2056, zoomControl: false }).setView([46.65, 9.75], 9);
+    L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/2056/{z}/{x}/{y}.jpeg').addTo(map);
+    L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.bav.schienennetz/default/current/2056/{z}/{x}/{y}.png', { opacity: 0.8 }).addTo(map);
+    userMarker = L.marker([46.65, 9.75]).addTo(map);
+    userMarker.setOpacity(0);
 
-    // --- KARTEN-FUNKTIONEN ---
-    function initMap() {
-        map = L.map('map', {
-            crs: L.CRS.EPSG2056,
-            continuousWorld: true,
-            worldCopyJump: false,
-            zoomControl: false 
-        }).setView([46.65, 9.75], 9); 
-
-        L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/2056/{z}/{x}/{y}.jpeg', {
-            attribution: '&copy; swisstopo', minZoom: 2, maxZoom: 18
-        }).addTo(map);
-
-        L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.bav.schienennetz/default/current/2056/{z}/{x}/{y}.png', {
-            attribution: '&copy; BAV', opacity: 0.8, minZoom: 8
-        }).addTo(map);
-        
-        userMarker = L.marker([46.65, 9.75], {
-            icon: L.divIcon({className: 'user-location-icon', html: '<div style="background-color: #007bff; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>'})
-        }).addTo(map);
-        userMarker.setOpacity(0); 
-    }
-
-    // --- GPS TRACKING ---
     function startTracking() {
+        console.log("Tracking gestartet");
+        info.innerHTML = "GPS Status: Suche Signal...";
         userMarker.setOpacity(1);
-        infoBox.innerHTML = "Warte auf GPS-Signal...";
         if (watchId) navigator.geolocation.clearWatch(watchId);
-
         watchId = navigator.geolocation.watchPosition(
-            (pos) => updateLocation(pos.coords.latitude, pos.coords.longitude, false),
-            (err) => { infoBox.innerHTML = "GPS-Fehler: Bitte Standortfreigabe prüfen."; },
-            { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
+            (pos) => updatePos(pos.coords.latitude, pos.coords.longitude),
+            (err) => { info.innerHTML = "Fehler: " + err.message; },
+            { enableHighAccuracy: true }
         );
     }
 
     function simulatePosition() {
+        console.log("Simulation gestartet");
         userMarker.setOpacity(1);
-        updateLocation(46.3265, 10.0575, true);
+        updatePos(46.3265, 10.0575);
     }
 
-    async function updateLocation(lat, lng, isSimulated) {
-        let newLatLng = [lat, lng];
-        userMarker.setLatLng(newLatLng);
-        map.setView(newLatLng, 15); 
+    function updatePos(lat, lng) {
+        userMarker.setLatLng([lat, lng]);
+        map.setView([lat, lng], 14);
+        info.innerHTML = `Position: ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>Suche Gleisabschnitt...`;
         
-        infoBox.innerHTML = `Position: ${lat.toFixed(4)}, ${lng.toFixed(4)}` + (isSimulated ? " (Test)" : "");
-
-        let lv95_E = 2600000 + (lng - 7.4) * 75000;
-        let lv95_N = 1200000 + (lat - 46.9) * 111000;
+        // LV95 Umrechnung (Näherung für API)
+        let e = 2600000 + (lng - 7.4) * 75000;
+        let n = 1200000 + (lat - 46.9) * 111000;
         
-        await fetchSwisstopoData(lv95_E, lv95_N);
-    }
-
-    async function fetchSwisstopoData(E, N) {
-        const url = `https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${E},${N}&imageDisplay=800,600,96&mapExtent=${E-200},${N-200},${E+200},${N+200}&tolerance=70&layers=all:ch.bav.schienennetz&sr=2056&returnGeometry=false`;
-
-        try {
-            let response = await fetch(url);
-            let data = await response.json();
-
-            autoCallBtn.style.display = "none"; 
-
+        fetch(`https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${e},${n}&imageDisplay=800,600,96&mapExtent=${e-200},${n-200},${e+200},${n+200}&tolerance=70&layers=all:ch.bav.schienennetz&sr=2056&returnGeometry=false`)
+        .then(res => res.json())
+        .then(data => {
+            autoCall.style.display = "none";
             if (data.results && data.results.length > 0) {
                 let attr = data.results[0].attributes;
-                let betreiber = attr.betreiber || "";
-                let streckeBAV = attr.streckenbezeichnung || "Schiene erkannt";
+                let bName = attr.betreiber || "";
+                let sName = attr.streckenbezeichnung || "";
+                info.innerHTML += `<br>Gleis: ${sName}`;
                 
-                infoBox.innerHTML += `<br>Gleis: ${streckeBAV} (${betreiber})`;
-
-                if (betreiber.includes("RhB")) {
-                    matchAndSetupCall(streckeBAV);
+                if (bName.includes("RhB")) {
+                    matchCall(sName);
                 }
             } else {
-                infoBox.innerHTML += "<br>Keine RhB-Schiene im Umkreis von 70m.";
+                info.innerHTML += "<br>Kein Gleis gefunden.";
             }
-        } catch (error) {
-            console.error(error);
-        }
+        });
     }
 
-    // --- SMARTE ANRUFZUORDNUNG ---
-    function matchAndSetupCall(streckeBAV) {
-        let streckeLower = streckeBAV.toLowerCase();
-        let bestMatch = null;
-        let maxScore = 0;
-
-        for (let entry of bzTelefonbuch) {
+    function matchCall(sName) {
+        let best = null;
+        let max = 0;
+        bzTelefonbuch.forEach(e => {
             let score = 0;
-            let keys = entry.route.replace(/[()]/g, "").toLowerCase().split(/[\s-]+/); 
-            
-            for (let key of keys) {
-                if (streckeLower.includes(key)) score++;
-            }
-            if (score > maxScore) { maxScore = score; bestMatch = entry; }
-        }
-
-        if (bestMatch && maxScore > 0) { 
-            let rawNum = bestMatch.phone.replace(/[^0-9]/g, "");
-            let formattedNum = "+41" + rawNum.substring(1);
-            
-            autoCallBtn.href = `tel:${formattedNum}`;
-            autoCallBtn.innerHTML = `📞 ${bestMatch.route} anrufen`;
-            autoCallBtn.style.display = "block";
-            
-            toggleControls(true); 
-        }
-    }
-
-    // --- MANUELLES VERZEICHNIS ---
-    function buildManualDirectory() {
-        let listContainer = document.getElementById('directoryList');
-        
-        bzTelefonbuch.forEach(entry => {
-            let divItem = document.createElement('div');
-            divItem.className = 'directory-item';
-            
-            let rawNum = entry.phone.replace(/[^0-9]/g, "");
-            let formattedNum = "+41" + rawNum.substring(1);
-            
-            divItem.innerHTML = `
-                <span class="sector-title">${entry.route}</span>
-                <span class="sector-meta">${entry.bezeichn}${entry.meta ? ' (' + entry.meta + ')' : ''}</span>
-                <a href="tel:${formattedNum}" class="phone-link">📞 ${entry.phone}</a>
-            `;
-            listContainer.appendChild(divItem);
+            let keys = e.route.toLowerCase().replace(/[()]/g, "").split(/[\s-]+/);
+            keys.forEach(k => { if (sName.toLowerCase().includes(k)) score++; });
+            if (score > max) { max = score; best = e; }
         });
-    }
 
-    // --- UI STEUERUNG ---
-    function toggleDirectory() {
-        let dirList = document.getElementById('directoryList');
-        dirList.classList.toggle('open');
-        document.getElementById('dir-icon').innerHTML = dirList.classList.contains('open') ? '▼' : '▶';
-        if(dirList.classList.contains('open')) toggleControls(true);
-    }
-
-    function toggleControls(forceState) {
-        let panel = document.getElementById('controls');
-        if (typeof forceState !== 'undefined') {
-            if (forceState) panel.classList.remove('minimized');
-            else panel.classList.add('minimized');
-        } else {
-            panel.classList.toggle('minimized');
+        if (best && max > 0) {
+            let num = "+41" + best.phone.substring(1);
+            autoCall.href = "tel:" + num;
+            autoCall.innerHTML = "📞 " + best.route + " anrufen";
+            autoCall.style.display = "block";
         }
     }
 
-    // --- PWA SERVICE WORKER REGISTRIERUNG ---
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('Service Worker erfolgreich registriert'))
-                .catch(err => console.error('Service Worker Fehler: ', err));
-        });
-    }
+    // Telefonbuch füllen
+    const dList = document.getElementById('dirList');
+    bzTelefonbuch.forEach(e => {
+        let item = document.createElement('div');
+        item.className = 'dir-item';
+        item.innerHTML = `<span class="dir-title">${e.route}</span><a href="tel:+41${e.phone.substring(1)}" class="dir-link">Anrufen: ${e.phone}</a>`;
+        dList.appendChild(item);
+    });
+
+    function toggleDirectory() { dList.classList.toggle('open'); }
 </script>
 
 </body>
