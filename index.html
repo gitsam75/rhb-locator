@@ -8,50 +8,30 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#e3000f">
 
-    <!-- Leaflet.js CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { box-sizing: border-box; }
-        body { 
-            font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; 
-            height: 100vh; display: flex; flex-direction: column; overflow: hidden;
-        }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-        /* Karte oben */
-        #map { width: 100%; height: 45vh; border-bottom: 3px solid #e3000f; z-index: 1; background-color: #e5e3df; }
+        #map { width: 100%; height: 40vh; border-bottom: 3px solid #e3000f; z-index: 1; background-color: #e5e3df; }
 
-        /* Panel unten */
-        .controls { 
-            width: 100%; height: 55vh; background: white; padding: 15px; display: flex; 
-            flex-direction: column; box-shadow: 0 -4px 10px rgba(0,0,0,0.1); z-index: 10;
-        }
+        .controls { width: 100%; height: 60vh; background: white; padding: 15px; display: flex; flex-direction: column; box-shadow: 0 -4px 10px rgba(0,0,0,0.1); z-index: 10; }
 
         .header { display: flex; align-items: center; margin-bottom: 10px; }
         h2 { color: #e3000f; margin: 0; font-size: 1.3em; }
 
         .scroll-area { overflow-y: auto; flex-grow: 1; padding-bottom: 10px; }
 
-        .data-box { 
-            background: #f0f0f0; padding: 12px; margin-bottom: 15px; 
-            border-left: 5px solid #e3000f; font-family: monospace; font-size: 13px; line-height: 1.4;
-        }
+        .data-box { background: #f0f0f0; padding: 12px; margin-bottom: 10px; border-left: 5px solid #e3000f; font-family: monospace; font-size: 13px; line-height: 1.5; }
+        
+        .highlight-km { color: #e3000f; font-weight: bold; font-size: 15px; display: block; margin-top: 5px; background: #ffe6e6; padding: 8px; border-radius: 4px;}
 
-        .highlight-km { color: #e3000f; font-weight: bold; font-size: 14px; display: block; margin-top: 5px; }
-
-        .btn-test { 
-            width: 100%; padding: 12px; background-color: #444; color: white; border: none; 
-            border-radius: 6px; font-size: 14px; cursor: pointer; margin-bottom: 10px; font-weight: bold;
-        }
-
-        .call-btn { 
-            background-color: #28a745; text-decoration: none; display: block; text-align: center; 
-            width: 100%; padding: 16px; color: white; border-radius: 6px; font-size: 16px; 
-            font-weight: bold; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
+        .call-btn { background-color: #28a745; text-decoration: none; display: block; text-align: center; width: 100%; padding: 16px; color: white; border-radius: 6px; font-size: 16px; font-weight: bold; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .call-btn:active { background-color: #218838; transform: scale(0.98); }
 
-        /* Verzeichnis Styles */
-        .dir-container { border: 1px solid #ccc; border-radius: 6px; margin-top: 10px; }
+        .btn-test { width: 100%; padding: 10px; background-color: #666; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; margin-bottom: 10px; }
+
+        .dir-container { border: 1px solid #ccc; border-radius: 6px; margin-top: 5px; }
         .dir-head { background: #eee; padding: 12px; font-weight: bold; font-size: 14px; cursor: pointer; border-radius: 6px; text-align: center;}
         .dir-list { display: none; background: white; }
         .dir-list.open { display: block; }
@@ -70,16 +50,14 @@
     </div>
 
     <div class="scroll-area">
-        <!-- Der Test-Button bleibt für dich zur Überprüfung von zu Hause -->
-        <button class="btn-test" onclick="simulatePosition()">🧪 Test: Standort Filisur simulieren</button>
+        <a id="autoCallBtn" href="#" class="call-btn" style="display: none;">📞 Fahrdienst anrufen</a>
         
         <div class="data-box" id="info">
             Warte auf GPS-Signal...<br>
-            <small>(Bitte Ortungsdienste im Browser erlauben)</small>
+            <small>(Automatische Ortung aktiv)</small>
         </div>
         
-        <!-- Der grösste Button für den direkten Anruf -->
-        <a id="autoCallBtn" href="#" class="call-btn" style="display: none;">📞 Fahrdienst anrufen</a>
+        <button class="btn-test" onclick="simulatePosition()">🧪 Test: Standort simulieren (Nähe S-chanf)</button>
 
         <div class="dir-container">
             <div class="dir-head" onclick="toggleDirectory()">⬇️ Manuelles Telefonbuch öffnen ⬇️</div>
@@ -90,6 +68,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    // --- DATENBANK TELEFONBUCH ---
     const bzTelefonbuch = [
         { route: "(Chur) - Untervaz", phone: "0812882682" },
         { route: "Landquart - (Untervaz)", phone: "0812882681" },
@@ -116,6 +95,18 @@
         { route: "Tirano (Nicht Fernst.)", phone: "0812885440" }
     ];
 
+    // --- DATENBANK KILOMETER (Aus PDF) ---
+    const kmDaten = {
+        "Landquart": "0.0", "Landquart Ried": "1.3", "Igis": "2.2", "Zizers Altlöser": "3.6", "Zizers": "4.0", "Untervaz-Trimmis": "5.8", "Haldenstein": "11.0", "Chur Wiesental": "12.6", 
+        "Chur": "13.7 (Stamm) / 0.0 (Arosa)", "Chur West": "15.2", "Felsberg": "17.7", "Domat/Ems": "20.2", "Reichenau-Tamins": "23.6", "Bonaduz": "27.4", "Rhäzüns": "28.7", "Rothenbrunnen": "32.8", "Rodels-Realta": "36.6", "Cazis": "38.5", "Thusis": "41.3",
+        "Solis": "49.3", "Tiefencastel": "53.9", "Surava": "58.1", "Alvaneu": "60.8", "Filisur": "64.4 (Albula) / 69.3 (Davos)", "Bergün/Bravuogn": "73.1", "Preda": "85.7", "Spinas": "91.8", "Bever": "95.6", "Samedan": "97.7", "Celerina": "100.3", "St. Moritz": "102.9 (Albula) / 0.0 (Bernina)", "Pontresina": "103.0 (Samedan) / 5.8 (Bernina)",
+        "Malans": "2.1", "Grüsch": "7.9", "Schiers": "11.4", "Fideris": "18.2", "Küblis": "21.4", "Saas": "24.6", "Serneus": "27.7", "Klosters Dorf": "30.7", "Klosters Platz": "32.4", "Davos Dorf": "47.3", "Davos Platz": "50.0", "Davos Glaris": "56.3", "Davos Wiesen": "64.6",
+        "Sagliains": "54.5", "Lavin": "130.1", "Guarda": "133.3", "Ardez": "137.4", "Scuol-Tarasp": "145.0", "Susch": "126.8", "Zernez": "120.4", "S-chanf": "106.0", "Zuoz": "103.8", 
+        "Trin": "28.3", "Versam-Safien": "32.7", "Valendas-Sagogn": "36.9", "Castrisch": "40.7", "Ilanz": "42.9", "Rueun": "48.0", "Trun": "60.8", "Rabius-Surrein": "64.0", "Disentis/Mustér": "72.9",
+        "Lüen-Castiel": "8.7", "St. Peter-Molinis": "12.7", "Peist": "14.4", "Langwies": "17.9", "Litzirüti": "20.7", "Arosa": "25.7",
+        "Morteratsch": "12.2", "Bernina Diavolezza": "16.8", "Ospizio Bernina": "22.3", "Alp Grüm": "27.1", "Cavaglia": "33.1", "Poschiavo": "43.6", "Le Prese": "48.0", "Miralago": "50.8", "Brusio": "53.9", "Campocologno": "57.6", "Tirano": "60.7"
+    };
+
     let map, userMarker, watchId;
     const info = document.getElementById('info');
     const autoCall = document.getElementById('autoCallBtn');
@@ -137,10 +128,8 @@
     }).addTo(map);
     userMarker.setOpacity(0);
 
-    // --- AUTO START BEIM ÖFFNEN DER APP ---
-    window.onload = function() {
-        startTracking();
-    };
+    // AUTOSTART
+    window.onload = function() { startTracking(); };
 
     function startTracking() {
         if (watchId) navigator.geolocation.clearWatch(watchId);
@@ -152,7 +141,8 @@
     }
 
     function simulatePosition() {
-        updatePos(46.6715, 9.6865); // Filisur Bahnhof
+        // Simulation: Zwischen S-chanf und Cinuos-chel-Brail
+        updatePos(46.6235, 9.9950); 
     }
 
     function updatePos(lat, lng) {
@@ -162,68 +152,84 @@
         
         let lv95 = convertWGSToLV95(lat, lng);
         
-        fetch(`https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${lv95.E},${lv95.N}&imageDisplay=800,600,96&mapExtent=${lv95.E-200},${lv95.N-200},${lv95.E+200},${lv95.N+200}&tolerance=70&layers=all:ch.bav.schienennetz&sr=2056&returnGeometry=false`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.results && data.results.length > 0) {
-                let attr = data.results[0].attributes;
-                let bName = attr.betreiber || "Unbekannt";
-                let sName = attr.streckenbezeichnung || "Schiene erkannt";
-                
-                // Wir suchen in den BAV Daten nach allem, was nach "Kilometer" aussieht
-                let kmText = "Keine Kilometrierung im BAV-Datensatz.";
-                for (let key in attr) {
-                    if (key.toLowerCase().includes("km") || key.toLowerCase().includes("kilometer")) {
-                        kmText = attr[key];
-                    }
-                }
+        // Wir suchen im Radius von ca. 2km (tolerance=400) nach Schienen UND Haltestellen
+        let url = `https://api3.geo.admin.ch/rest/services/api/MapServer/identify?geometryType=esriGeometryPoint&geometry=${lv95.E},${lv95.N}&imageDisplay=800,600,96&mapExtent=${lv95.E-2000},${lv95.N-2000},${lv95.E+2000},${lv95.N+2000}&tolerance=400&layers=all:ch.bav.schienennetz,ch.bav.haltestellen-oev&sr=2056&returnGeometry=true`;
 
-                info.innerHTML = `
-                    Gleis: <strong>${sName}</strong> (${bName})<br>
-                    <span class="highlight-km">Strecken-km: ${kmText}</span>
-                    <small>Position: E ${lv95.E} / N ${lv95.N}</small>
-                `;
+        fetch(url).then(res => res.json()).then(data => {
+            let trackName = "Unbekannt";
+            let closestStation = null;
+            let minDistance = 999999;
+
+            if (data.results) {
+                // Daten filtern
+                data.results.forEach(res => {
+                    if (res.layerBodId === 'ch.bav.schienennetz' && res.attributes.betreiber.includes("RhB")) {
+                        trackName = res.attributes.streckenbezeichnung;
+                    }
+                    if (res.layerBodId === 'ch.bav.haltestellen-oev') {
+                        // Distanz berechnen (Satz des Pythagoras in Schweizer Metern)
+                        let statE = res.geometry.x;
+                        let statN = res.geometry.y;
+                        let dist = Math.sqrt(Math.pow(lv95.E - statE, 2) + Math.pow(lv95.N - statN, 2));
+                        
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            closestStation = res.attributes.name;
+                        }
+                    }
+                });
+            }
+
+            // Kilometer-Interpolation aus der PDF-Datenbank
+            let kmText = "Kein Referenzpunkt in 2km Nähe.";
+            let distText = "";
+            if (closestStation) {
+                // Bereinige Stationsnamen für besseres Matching (z.B. "S-chanf" statt "S-chanf, Bahnhof")
+                let cleanName = closestStation.split(",")[0]; 
+                let exactKm = kmDaten[cleanName] || "Unbekannt";
                 
-                if (bName.includes("RhB") || bName.includes("Rhätische")) {
-                    matchCall(sName);
-                } else {
-                    autoCall.style.display = "none";
+                if(exactKm !== "Unbekannt") {
+                    kmText = `Basis: ${cleanName} (km ${exactKm})`;
+                    distText = `Du bist ca. ${Math.round(minDistance)} Meter von diesem Punkt entfernt.`;
                 }
+            }
+
+            info.innerHTML = `
+                Gleis: <strong>${trackName}</strong><br>
+                <div class="highlight-km">
+                    📍 ${kmText}<br>
+                    <span style="font-size: 13px; color: #555; font-weight: normal;">${distText}</span>
+                </div>
+            `;
+            
+            if (trackName !== "Unbekannt") {
+                matchCall(trackName);
             } else {
-                info.innerHTML = `Position: E ${lv95.E} / N ${lv95.N}<br><span style="color:red">Keine RhB-Schiene im Umkreis von 70m gefunden.</span>`;
                 autoCall.style.display = "none";
             }
         });
     }
 
     function matchCall(sName) {
-        let best = null;
-        let max = 0;
+        let best = null; let max = 0;
         
-        // Smarte, tolerantere Suchfunktion
         bzTelefonbuch.forEach(e => {
             let score = 0;
-            // Wir zerlegen beide Namen in einzelne Wörter (z.B. "Thusis" und "Filisur")
-            let keys = e.route.toLowerCase().replace(/[()]/g, "").split(/[\s-]+/);
-            keys = keys.filter(k => k.length > 2); // Nur echte Wörter zählen
-            
+            let keys = e.route.toLowerCase().replace(/[()]/g, "").split(/[\s-]+/).filter(k => k.length > 2);
             keys.forEach(k => { if (sName.toLowerCase().includes(k)) score++; });
             if (score > max) { max = score; best = e; }
         });
 
-        // Wenn er einen Sektor aus dem Foto sicher erkennt
         if (best && max > 0) {
-            let num = "+41" + best.phone.substring(1);
-            autoCall.href = "tel:" + num;
+            autoCall.href = "tel:+41" + best.phone.substring(1);
             autoCall.innerHTML = "📞 " + best.route + " anrufen";
             autoCall.style.display = "block";
-            autoCall.style.backgroundColor = "#28a745"; // Grün
+            autoCall.style.backgroundColor = "#28a745"; 
         } else {
-            // FALLBACK: Er weiss, dass es RhB ist, findet den Namen aber nicht in der Liste
             autoCall.href = "tel:+41812882682";
             autoCall.innerHTML = "📞 BZ Landquart (Standard) anrufen";
             autoCall.style.display = "block";
-            autoCall.style.backgroundColor = "#ff9800"; // Orange zur Warnung
+            autoCall.style.backgroundColor = "#ff9800"; 
         }
     }
 
